@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Minus, Plus, Send, ChevronLeft, Loader2, Check, AlertTriangle, Package, Trash2, Clock } from 'lucide-react';
-import { supabase, Product, CATEGORIES, RequestPriority, RequestType } from '../lib/supabase';
+import { Minus, Plus, Send, ChevronLeft, Loader2, Check, AlertTriangle, Package, Trash2, Clock, Wrench, UserCheck, X } from 'lucide-react';
+import { supabase, Product, CATEGORIES, RequestPriority, RequestType, RestockRequest } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
 interface CartItem {
   product: Product;
   quantity: number;
 }
+
+type StaffCallType = Extract<RequestType, 'security_call' | 'it_support' | 'serving_manager'>;
 
 const CATEGORY_ICONS: Record<string, string> = {
   'Öl': '🍺',
@@ -44,7 +46,28 @@ const SERVICE_COPY: Record<Exclude<RequestType, 'restock'>, { title: string; uni
     unit: 'hämtning',
     note: 'Vilken typ av avfall eller var det står?',
   },
+  security_call: {
+    title: 'Tillkalla ordningsvakt',
+    unit: 'tillkallning',
+    note: 'Ordningsvakt behövs till platsen.',
+  },
+  it_support: {
+    title: 'Tillkalla IT-support',
+    unit: 'tillkallning',
+    note: 'IT-support behövs till platsen.',
+  },
+  serving_manager: {
+    title: 'Tillkalla serveringsansvarig',
+    unit: 'tillkallning',
+    note: 'Serveringsansvarig behövs till platsen.',
+  },
 };
+
+const STAFF_CALL_TYPES: StaffCallType[] = [
+  'security_call',
+  'it_support',
+  'serving_manager',
+];
 
 export default function RequestForm() {
   const { currentUser, currentLocation, setView } = useApp();
@@ -56,6 +79,9 @@ export default function RequestForm() {
   const [priority, setPriority] = useState<Exclude<RequestPriority, 'normal'>>('inom_20');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendingCall, setSendingCall] = useState<RequestType | null>(null);
+  const [cancellingCall, setCancellingCall] = useState<RequestType | null>(null);
+  const [activeStaffCalls, setActiveStaffCalls] = useState<RestockRequest[]>([]);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
@@ -66,6 +92,43 @@ export default function RequestForm() {
       .order('sort_order')
       .then(({ data }: { data: Product[] | null }) => setProducts(data || []));
   }, []);
+
+  async function loadActiveStaffCalls() {
+    if (!currentLocation) return;
+
+    const { data } = await supabase
+      .from('restock_requests')
+      .select('*')
+      .eq('location_id', currentLocation.id)
+      .in('request_type', STAFF_CALL_TYPES)
+      .in('status', ['mottagen', 'pa_vag']) as { data: RestockRequest[] | null };
+
+    setActiveStaffCalls(data || []);
+  }
+
+  useEffect(() => {
+    loadActiveStaffCalls();
+
+    const channel = supabase
+      .channel('bar-staff-calls')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'restock_requests',
+      }, () => {
+        loadActiveStaffCalls();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'restock_requests',
+      }, () => {
+        loadActiveStaffCalls();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentLocation]);
 
   const categoriesWithProducts = CATEGORIES.filter(cat =>
     products.some(p => p.category === cat)
@@ -95,6 +158,14 @@ export default function RequestForm() {
     : serviceQuantity;
   const canSend = requestType === 'restock' ? cart.length > 0 : serviceQuantity > 0;
   const service = requestType === 'restock' ? null : SERVICE_COPY[requestType];
+  const getStaffCall = (type: StaffCallType) =>
+    activeStaffCalls.find(call => call.request_type === type);
+  const isStaffCalled = (type: StaffCallType) =>
+    getStaffCall(type)?.status === 'pa_vag';
+  const isStaffWaiting = (type: StaffCallType) =>
+    getStaffCall(type)?.status === 'mottagen';
+  const hasActiveStaffCall = (type: StaffCallType) =>
+    Boolean(getStaffCall(type));
 
   async function sendRequest() {
     if (!canSend || !currentUser || !currentLocation) return;
@@ -148,6 +219,82 @@ export default function RequestForm() {
     }, 2000);
   }
 
+  async function sendStaffCall(type: StaffCallType) {
+    if (!currentUser || !currentLocation || sendingCall) return;
+    setSendingCall(type);
+
+    const call = SERVICE_COPY[type];
+    const { data: req, error: reqErr } = await supabase
+      .from('restock_requests')
+      .insert({
+        user_id: currentUser.id,
+        location_id: currentLocation.id,
+        request_type: type,
+        priority: type === 'security_call' ? 'akut' : 'inom_20',
+        note: null,
+        status: 'mottagen',
+      })
+      .select()
+      .single();
+
+    if (reqErr || !req) {
+      setSendingCall(null);
+      return;
+    }
+
+    await supabase.from('restock_request_items').insert({
+      request_id: req.id,
+      product_id: null,
+      product_name: call.title,
+      quantity: 1,
+      unit: call.unit,
+    });
+
+    setSendingCall(null);
+    await loadActiveStaffCalls();
+    setSent(true);
+    setTimeout(() => setSent(false), 2000);
+  }
+
+  async function cancelStaffCall(type: StaffCallType) {
+    const activeCall = getStaffCall(type);
+    if (!activeCall || cancellingCall) return;
+
+    setCancellingCall(type);
+    await supabase
+      .from('restock_requests')
+      .update({ status: 'kan_ej_levereras' })
+      .eq('id', activeCall.id);
+    await loadActiveStaffCalls();
+    setCancellingCall(null);
+  }
+
+  function staffCallLabel(type: StaffCallType, defaultLabel: string) {
+    if (isStaffCalled(type)) {
+      if (type === 'security_call') return 'ORDNINGSVAKT TILLKALLAD';
+      if (type === 'it_support') return 'IT TILLKALLAD';
+      return 'SERVERINGSANSVARIG TILLKALLAD';
+    }
+    if (isStaffWaiting(type)) return 'VÄNTAR PÅ BEKRÄFTELSE';
+    return defaultLabel;
+  }
+
+  function staffCallClasses(type: StaffCallType, variant: 'primary' | 'secondary') {
+    if (isStaffCalled(type)) {
+      return variant === 'primary'
+        ? 'bg-green-600 hover:bg-green-500 border-green-400 text-white shadow-green-950/30'
+        : 'bg-green-600/20 border-green-500/50 text-green-300';
+    }
+    if (isStaffWaiting(type)) {
+      return variant === 'primary'
+        ? 'bg-amber-500 hover:bg-amber-400 border-amber-300 text-gray-950 shadow-amber-950/20'
+        : 'bg-amber-500/15 border-amber-500/50 text-amber-300';
+    }
+    return variant === 'primary'
+      ? 'bg-red-600 hover:bg-red-500 border-red-400 text-white shadow-red-950/30'
+      : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-300';
+  }
+
   if (sent) {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4 px-4">
@@ -179,6 +326,58 @@ export default function RequestForm() {
             {requestType === 'restock' ? `${totalItems} valda` : 'Redo'}
           </div>
         )}
+      </div>
+
+      {/* Staff calls */}
+      <div className="px-4 pt-4 space-y-2">
+        <div className="space-y-2">
+          <button
+            onClick={() => sendStaffCall('security_call')}
+            disabled={sendingCall !== null || hasActiveStaffCall('security_call')}
+            className={`w-full h-14 rounded-xl border font-black tracking-wide flex items-center justify-center gap-2 shadow-lg disabled:opacity-90 ${staffCallClasses('security_call', 'primary')}`}
+          >
+            {sendingCall === 'security_call' ? <Loader2 className="w-5 h-5 animate-spin" /> : <AlertTriangle className="w-5 h-5" />}
+            {staffCallLabel('security_call', 'TILLKALLA ORDNINGSVAKT')}
+          </button>
+          {hasActiveStaffCall('security_call') && (
+            <button
+              onClick={() => cancelStaffCall('security_call')}
+              disabled={cancellingCall !== null}
+              className="w-full h-9 rounded-lg bg-gray-900 hover:bg-gray-800 border border-red-500/40 text-red-300 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {cancellingCall === 'security_call' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+              Återkalla ordningsvakt
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { type: 'serving_manager' as StaffCallType, label: 'Tillkalla serveringsansvarig', Icon: UserCheck },
+            { type: 'it_support' as StaffCallType, label: 'Tillkalla IT-support', Icon: Wrench },
+          ]).map(({ type, label, Icon }) => (
+            <div key={type} className="space-y-1">
+              <button
+                onClick={() => sendStaffCall(type)}
+                disabled={sendingCall !== null || hasActiveStaffCall(type)}
+                className={`w-full min-h-12 rounded-lg border px-2 py-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-90 ${staffCallClasses(type, 'secondary')}`}
+              >
+                {sendingCall === type ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4 flex-shrink-0" />}
+                <span className="leading-tight">{staffCallLabel(type, label)}</span>
+              </button>
+              {hasActiveStaffCall(type) && (
+                <button
+                  onClick={() => cancelStaffCall(type)}
+                  disabled={cancellingCall !== null}
+                  className="w-full h-8 rounded-lg bg-gray-900 hover:bg-gray-800 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                >
+                  {cancellingCall === type ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                  Återkalla
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Request type */}

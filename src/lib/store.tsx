@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { AppUser, Location } from './supabase';
 
-type View = 'login' | 'location-select' | 'request' | 'dashboard' | 'history' | 'admin';
+type View = 'login' | 'location-select' | 'request' | 'dashboard' | 'staff-dashboard' | 'history' | 'admin';
 
 interface PersistedState {
   user: AppUser | null;

@@ -23,6 +23,7 @@ const seedDb: DemoDb = {
   users: [
     { id: 'user-admin', name: 'Admin', pin: '0000', role: 'admin', active: true, created_at: now },
     { id: 'user-bar', name: 'Barpersonal', pin: '1234', role: 'barpersonal', active: true, created_at: now },
+    { id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now },
     { id: 'user-lager', name: 'Lager', pin: '6789', role: 'lager', active: true, created_at: now },
   ],
   locations: [
@@ -83,7 +84,12 @@ function loadDb(): DemoDb {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seedDb));
     return clone(seedDb);
   }
-  return JSON.parse(raw);
+  const db = JSON.parse(raw) as DemoDb;
+  if (!db.users.some(user => user.pin === '5555')) {
+    db.users.push({ id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now });
+    saveDb(db);
+  }
+  return db;
 }
 
 function saveDb(db: DemoDb) {

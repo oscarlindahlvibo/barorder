@@ -24,6 +24,14 @@ function getRequestType(request: RestockRequest): RequestType {
   return request.request_type ?? 'restock';
 }
 
+function isServiceRequest(type: RequestType): boolean {
+  return type === 'crate_pickup' || type === 'waste_pickup';
+}
+
+function isStaffCall(type: RequestType): boolean {
+  return type === 'security_call' || type === 'it_support' || type === 'serving_manager';
+}
+
 function getItemsText(req: RestockRequest): string {
   return req.restock_request_items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || '';
 }
@@ -61,7 +69,7 @@ export default function Dashboard() {
   const [requests, setRequests] = useState<RestockRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'service'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'service' | 'staff'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -271,8 +279,9 @@ export default function Dashboard() {
     requests.filter(req => {
       const type = getRequestType(req);
       if (typeFilter === 'orders') return type === 'restock';
-      if (typeFilter === 'service') return type !== 'restock';
-      return true;
+      if (typeFilter === 'service') return isServiceRequest(type);
+      if (typeFilter === 'staff') return false;
+      return !isStaffCall(type);
     })
   );
 

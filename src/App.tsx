@@ -3,6 +3,7 @@ import PinLogin from './components/PinLogin';
 import LocationSelect from './components/LocationSelect';
 import RequestForm from './components/RequestForm';
 import Dashboard from './components/Dashboard';
+import StaffDashboard from './components/StaffDashboard';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -23,6 +24,7 @@ function AppContent() {
         </div>
       )}
       {view === 'dashboard' && <Dashboard />}
+      {view === 'staff-dashboard' && <StaffDashboard />}
       {view === 'history' && (
         <div className={showBarNav ? 'pb-20' : ''}>
           <History />

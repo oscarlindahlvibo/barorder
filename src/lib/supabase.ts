@@ -12,7 +12,7 @@ export const supabase: any = isDemoMode
   ? createDemoSupabaseClient()
   : createClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'barpersonal' | 'lager' | 'admin';
+export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal';
 
 export interface AppUser {
   id: string;
@@ -43,7 +43,13 @@ export interface Product {
 
 export type RequestStatus = 'mottagen' | 'pa_vag' | 'levererad' | 'kan_ej_levereras';
 export type RequestPriority = 'kan_vanta' | 'inom_20' | 'akut' | 'normal';
-export type RequestType = 'restock' | 'crate_pickup' | 'waste_pickup';
+export type RequestType =
+  | 'restock'
+  | 'crate_pickup'
+  | 'waste_pickup'
+  | 'security_call'
+  | 'it_support'
+  | 'serving_manager';
 
 export interface RestockRequest {
   id: string;
@@ -102,6 +108,9 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   restock: 'Påfyllning',
   crate_pickup: 'Tombackar',
   waste_pickup: 'Avfall',
+  security_call: 'Ordningsvakt',
+  it_support: 'IT-support',
+  serving_manager: 'Serveringsansvarig',
 };
 
 export const PRIORITY_LABELS: Record<RequestPriority, string> = {
