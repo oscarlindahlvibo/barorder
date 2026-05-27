@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Bell, BellOff, Clock, MapPin, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, RefreshCw, X } from 'lucide-react';
+import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, RefreshCw, X } from 'lucide-react';
 import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS } from '../lib/supabase';
 import { useApp } from '../lib/store';
-
-const STATUS_ORDER: RequestStatus[] = ['mottagen', 'pa_vag', 'levererad', 'kan_ej_levereras'];
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -141,13 +139,13 @@ export default function Dashboard() {
       query.in('status', ['mottagen', 'pa_vag']);
     }
 
-    const { data } = await query;
+    const { data } = await query as { data: RestockRequest[] | null };
     return data || [];
   }
 
   useEffect(() => {
     setLoading(true);
-    fetchRequests().then(data => {
+    fetchRequests().then((data: RestockRequest[]) => {
       setRequests(data);
       const mottagenIds = new Set(data.filter(r => r.status === 'mottagen').map(r => r.id));
       prevIdsRef.current = mottagenIds;
@@ -162,14 +160,14 @@ export default function Dashboard() {
         event: 'INSERT',
         schema: 'public',
         table: 'restock_requests',
-      }, (payload) => {
+      }, (payload: { new: RestockRequest }) => {
         // New request inserted — fetch full details with relations
         supabase
           .from('restock_requests')
           .select(`*, users(id, name, role), locations(id, name), restock_request_items(*)`)
           .eq('id', payload.new.id)
           .maybeSingle()
-          .then(({ data: newReq }) => {
+          .then(({ data: newReq }: { data: RestockRequest | null }) => {
             if (!newReq) return;
             const isNew = !prevIdsRef.current.has(newReq.id);
             if (isNew) {

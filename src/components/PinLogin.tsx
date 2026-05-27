@@ -7,7 +7,7 @@ export default function PinLogin() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setCurrentUser, setView } = useApp();
+  const { setCurrentUser } = useApp();
 
   async function handleLogin(finalPin: string) {
     if (finalPin.length < 4) return;

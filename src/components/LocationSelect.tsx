@@ -6,7 +6,7 @@ import { useApp } from '../lib/store';
 export default function LocationSelect() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
-  const { currentUser, setCurrentLocation, setView } = useApp();
+  const { currentUser, setCurrentLocation } = useApp();
 
   useEffect(() => {
     supabase
@@ -14,7 +14,7 @@ export default function LocationSelect() {
       .select('*')
       .eq('active', true)
       .order('sort_order')
-      .then(({ data }) => {
+      .then(({ data }: { data: Location[] | null }) => {
         setLocations(data || []);
         setLoading(false);
       });

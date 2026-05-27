@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2 } from 'lucide-react';
+import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw } from 'lucide-react';
 import { supabase, AppUser, Location, Product, CATEGORIES } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
@@ -61,52 +61,70 @@ function StatsTab() {
     openCount: number;
     avgDelivery: string;
   } | null>(null);
+  const [resetting, setResetting] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      const { data: requests } = await supabase
-        .from('restock_requests')
-        .select(`*, locations(name), restock_request_items(product_name, quantity)`)
-        .order('created_at', { ascending: false });
+  async function load() {
+    const { data: requests } = await supabase
+      .from('restock_requests')
+      .select(`*, locations(name), restock_request_items(product_name, quantity)`)
+      .order('created_at', { ascending: false });
 
-      if (!requests) return;
+    if (!requests) return;
 
-      const byLocation: Record<string, number> = {};
-      const byProduct: Record<string, number> = {};
-      let openCount = 0;
-      let deliveredWithTime: number[] = [];
+    const byLocation: Record<string, number> = {};
+    const byProduct: Record<string, number> = {};
+    let openCount = 0;
+    const deliveredWithTime: number[] = [];
 
-      for (const req of requests) {
-        const locName = req.locations?.name || 'Okänd';
-        byLocation[locName] = (byLocation[locName] || 0) + 1;
-        if (req.status === 'mottagen' || req.status === 'pa_vag') openCount++;
-        if (req.status === 'levererad') {
-          const ms = new Date(req.updated_at).getTime() - new Date(req.created_at).getTime();
-          deliveredWithTime.push(ms / 60000);
-        }
-        for (const item of req.restock_request_items || []) {
-          byProduct[item.product_name] = (byProduct[item.product_name] || 0) + item.quantity;
-        }
+    for (const req of requests) {
+      const locName = req.locations?.name || 'Okänd';
+      byLocation[locName] = (byLocation[locName] || 0) + 1;
+      if (req.status === 'mottagen' || req.status === 'pa_vag') openCount++;
+      if (req.status === 'levererad') {
+        const ms = new Date(req.updated_at).getTime() - new Date(req.created_at).getTime();
+        deliveredWithTime.push(ms / 60000);
       }
-
-      const avg = deliveredWithTime.length
-        ? Math.round(deliveredWithTime.reduce((a, b) => a + b, 0) / deliveredWithTime.length)
-        : null;
-
-      setStats({
-        byLocation: Object.entries(byLocation).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })),
-        topProducts: Object.entries(byProduct).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
-        openCount,
-        avgDelivery: avg !== null ? `${avg} min` : '—',
-      });
+      for (const item of req.restock_request_items || []) {
+        byProduct[item.product_name] = (byProduct[item.product_name] || 0) + item.quantity;
+      }
     }
-    load();
-  }, []);
+
+    const avg = deliveredWithTime.length
+      ? Math.round(deliveredWithTime.reduce((a, b) => a + b, 0) / deliveredWithTime.length)
+      : null;
+
+    setStats({
+      byLocation: Object.entries(byLocation).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })),
+      topProducts: Object.entries(byProduct).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, count]) => ({ name, count })),
+      openCount,
+      avgDelivery: avg !== null ? `${avg} min` : '—',
+    });
+  }
+
+  async function resetStats() {
+    if (!window.confirm('Nollställ all statistik och ta bort alla beställningar inför kvällen?')) return;
+    setResetting(true);
+    await supabase.from('restock_request_items').delete().not('id', 'is', null);
+    await supabase.from('restock_requests').delete().not('id', 'is', null);
+    await load();
+    setResetting(false);
+  }
+
+  useEffect(() => { load(); }, []);
 
   if (!stats) return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>;
 
   return (
     <div className="p-4 space-y-4">
+      <button
+        onClick={resetStats}
+        disabled={resetting}
+        className="w-full h-12 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+      >
+        {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+        Återställ statistik inför kvällen
+      </button>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
           <p className="text-amber-400 text-3xl font-bold">{stats.openCount}</p>
@@ -121,6 +139,9 @@ function StatsTab() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h3 className="text-white font-semibold mb-3">Beställningar per plats</h3>
         <div className="space-y-2">
+          {stats.byLocation.length === 0 && (
+            <p className="text-gray-500 text-sm">Ingen statistik än</p>
+          )}
           {stats.byLocation.map(({ name, count }) => {
             const max = stats.byLocation[0]?.count || 1;
             return (
@@ -144,6 +165,9 @@ function StatsTab() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h3 className="text-white font-semibold mb-3">Mest beställda produkter</h3>
         <div className="space-y-2">
+          {stats.topProducts.length === 0 && (
+            <p className="text-gray-500 text-sm">Ingen produktstatistik än</p>
+          )}
           {stats.topProducts.map(({ name, count }, i) => (
             <div key={name} className="flex items-center gap-3">
               <span className="text-gray-600 text-xs w-5 text-right">{i + 1}.</span>
@@ -188,6 +212,13 @@ function UsersTab() {
 
   async function toggleActive(user: AppUser) {
     await supabase.from('users').update({ active: !user.active }).eq('id', user.id);
+    load();
+  }
+
+  async function deleteUser(user: AppUser) {
+    if (!window.confirm(`Radera ${user.name}? Historiska beställningar behålls men kopplas inte längre till personen.`)) return;
+    await supabase.from('restock_requests').update({ user_id: null }).eq('user_id', user.id);
+    await supabase.from('users').delete().eq('id', user.id);
     load();
   }
 
@@ -264,11 +295,14 @@ function UsersTab() {
             <p className="text-gray-500 text-sm">PIN: {user.pin} · {ROLE_LABELS[user.role]}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button onClick={() => startEdit(user)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+            <button onClick={() => startEdit(user)} aria-label={`Redigera ${user.name}`} title="Redigera" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => toggleActive(user)} className={`p-2 rounded-lg transition-colors ${user.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800 hover:text-gray-400'}`}>
+            <button onClick={() => toggleActive(user)} aria-label={user.active ? `Inaktivera ${user.name}` : `Aktivera ${user.name}`} title={user.active ? 'Inaktivera' : 'Aktivera'} className={`p-2 rounded-lg transition-colors ${user.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800 hover:text-gray-400'}`}>
               <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => deleteUser(user)} aria-label={`Radera ${user.name}`} title="Radera" className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -310,6 +344,13 @@ function LocationsTab() {
     load();
   }
 
+  async function deleteLocation(loc: Location) {
+    if (!window.confirm(`Radera platsen ${loc.name}? Historiska beställningar behålls men kopplas inte längre till platsen.`)) return;
+    await supabase.from('restock_requests').update({ location_id: null }).eq('location_id', loc.id);
+    await supabase.from('locations').delete().eq('id', loc.id);
+    load();
+  }
+
   return (
     <div className="p-4 space-y-3">
       {(adding || editing) ? (
@@ -346,11 +387,14 @@ function LocationsTab() {
             <p className="text-gray-500 text-xs">{loc.active ? 'Aktiv' : 'Inaktiv'}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => { setEditing(loc.id); setAdding(false); setForm({ name: loc.name }); }} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+            <button onClick={() => { setEditing(loc.id); setAdding(false); setForm({ name: loc.name }); }} aria-label={`Redigera ${loc.name}`} title="Redigera" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => toggleActive(loc)} className={`p-2 rounded-lg transition-colors ${loc.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800'}`}>
+            <button onClick={() => toggleActive(loc)} aria-label={loc.active ? `Inaktivera ${loc.name}` : `Aktivera ${loc.name}`} title={loc.active ? 'Inaktivera' : 'Aktivera'} className={`p-2 rounded-lg transition-colors ${loc.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800'}`}>
               <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => deleteLocation(loc)} aria-label={`Radera ${loc.name}`} title="Radera" className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -390,6 +434,13 @@ function ProductsTab() {
 
   async function toggleActive(p: Product) {
     await supabase.from('products').update({ active: !p.active }).eq('id', p.id);
+    load();
+  }
+
+  async function deleteProduct(p: Product) {
+    if (!window.confirm(`Radera produkten ${p.name}? Historiska orderrader behåller namn och antal.`)) return;
+    await supabase.from('restock_request_items').update({ product_id: null }).eq('product_id', p.id);
+    await supabase.from('products').delete().eq('id', p.id);
     load();
   }
 
@@ -438,11 +489,14 @@ function ProductsTab() {
             <p className="text-gray-500 text-xs">{p.category} · {p.unit}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => { setEditing(p.id); setAdding(false); setForm({ name: p.name, category: p.category, unit: p.unit }); }} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+            <button onClick={() => { setEditing(p.id); setAdding(false); setForm({ name: p.name, category: p.category, unit: p.unit }); }} aria-label={`Redigera ${p.name}`} title="Redigera" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => toggleActive(p)} className={`p-2 rounded-lg transition-colors ${p.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800'}`}>
+            <button onClick={() => toggleActive(p)} aria-label={p.active ? `Inaktivera ${p.name}` : `Aktivera ${p.name}`} title={p.active ? 'Inaktivera' : 'Aktivera'} className={`p-2 rounded-lg transition-colors ${p.active ? 'text-green-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-800'}`}>
               <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => deleteProduct(p)} aria-label={`Radera ${p.name}`} title="Radera" className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>

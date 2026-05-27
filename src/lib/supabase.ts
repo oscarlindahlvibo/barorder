@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
+import { createDemoSupabaseClient } from './demoSupabase';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const isDemoMode = !supabaseUrl || !supabaseAnonKey;
+
+// The app intentionally supports both the real Supabase client and a local demo client.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const supabase: any = isDemoMode
+  ? createDemoSupabaseClient()
+  : createClient(supabaseUrl, supabaseAnonKey);
 
 export type UserRole = 'barpersonal' | 'lager' | 'admin';
 

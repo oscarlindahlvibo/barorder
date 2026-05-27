@@ -26,7 +26,7 @@ export default function History() {
       query.eq('user_id', currentUser.id);
     }
 
-    query.then(({ data }) => {
+    query.then(({ data }: { data: RestockRequest[] | null }) => {
       setRequests(data || []);
       setLoading(false);
     });

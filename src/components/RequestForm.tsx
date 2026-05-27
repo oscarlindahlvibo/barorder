@@ -37,7 +37,7 @@ export default function RequestForm() {
       .select('*')
       .eq('active', true)
       .order('sort_order')
-      .then(({ data }) => setProducts(data || []));
+      .then(({ data }: { data: Product[] | null }) => setProducts(data || []));
   }, []);
 
   const categoriesWithProducts = CATEGORIES.filter(cat =>

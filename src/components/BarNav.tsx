@@ -2,7 +2,7 @@ import { ShoppingCart, History, LogOut } from 'lucide-react';
 import { useApp } from '../lib/store';
 
 export default function BarNav() {
-  const { view, setView, logout, currentUser } = useApp();
+  const { view, setView, logout } = useApp();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 flex z-20 safe-area-inset-bottom">
