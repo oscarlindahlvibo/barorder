@@ -47,6 +47,7 @@ const seedDb: DemoDb = {
       id: 'req-demo-1',
       user_id: 'user-bar',
       location_id: 'loc-main',
+      request_type: 'restock',
       priority: 'akut',
       note: 'Kön växer snabbt vid entrén.',
       status: 'mottagen',
@@ -57,7 +58,8 @@ const seedDb: DemoDb = {
       id: 'req-demo-2',
       user_id: 'user-bar',
       location_id: 'loc-stage',
-      priority: 'normal',
+      request_type: 'crate_pickup',
+      priority: 'inom_20',
       note: null,
       status: 'pa_vag',
       created_at: new Date(Date.now() - 26 * 60000).toISOString(),
@@ -67,7 +69,7 @@ const seedDb: DemoDb = {
   restock_request_items: [
     { id: 'item-demo-1', request_id: 'req-demo-1', product_id: 'prod-ice', product_name: 'Is', quantity: 4, unit: 'påse', created_at: now },
     { id: 'item-demo-2', request_id: 'req-demo-1', product_id: 'prod-lager', product_name: 'Ljus lager', quantity: 2, unit: 'krt', created_at: now },
-    { id: 'item-demo-3', request_id: 'req-demo-2', product_id: 'prod-cups', product_name: 'Plastmuggar', quantity: 6, unit: 'rör', created_at: now },
+    { id: 'item-demo-3', request_id: 'req-demo-2', product_id: null, product_name: 'Tömning av tombackar', quantity: 6, unit: 'hämtning', created_at: now },
   ],
 };
 
@@ -239,7 +241,7 @@ class DemoQuery {
     if (this.table === 'users') return { active: true, role: 'barpersonal', ...base } as AppUser;
     if (this.table === 'locations') return { active: true, sort_order: 0, ...base } as Location;
     if (this.table === 'products') return { active: true, sort_order: 0, ...base } as Product;
-    if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', priority: 'normal', ...base } as RestockRequest;
+    if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', request_type: 'restock', priority: 'inom_20', ...base } as RestockRequest;
     return base as RestockRequestItem;
   }
 

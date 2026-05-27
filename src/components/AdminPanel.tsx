@@ -163,10 +163,10 @@ function StatsTab() {
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <h3 className="text-white font-semibold mb-3">Mest beställda produkter</h3>
+        <h3 className="text-white font-semibold mb-3">Mest efterfrågat</h3>
         <div className="space-y-2">
           {stats.topProducts.length === 0 && (
-            <p className="text-gray-500 text-sm">Ingen produktstatistik än</p>
+            <p className="text-gray-500 text-sm">Ingen statistik än</p>
           )}
           {stats.topProducts.map(({ name, count }, i) => (
             <div key={name} className="flex items-center gap-3">

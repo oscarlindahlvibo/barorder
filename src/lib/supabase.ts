@@ -42,12 +42,14 @@ export interface Product {
 }
 
 export type RequestStatus = 'mottagen' | 'pa_vag' | 'levererad' | 'kan_ej_levereras';
-export type RequestPriority = 'normal' | 'akut';
+export type RequestPriority = 'kan_vanta' | 'inom_20' | 'akut' | 'normal';
+export type RequestType = 'restock' | 'crate_pickup' | 'waste_pickup';
 
 export interface RestockRequest {
   id: string;
   user_id: string;
   location_id: string;
+  request_type?: RequestType;
   priority: RequestPriority;
   note: string | null;
   status: RequestStatus;
@@ -84,14 +86,27 @@ export const CATEGORIES = [
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
   mottagen: 'Mottagen',
-  pa_vag: 'På väg',
+  pa_vag: 'Plockas',
   levererad: 'Levererad',
   kan_ej_levereras: 'Kan ej levereras',
 };
 
 export const STATUS_COLORS: Record<RequestStatus, string> = {
   mottagen: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-  pa_vag: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  pa_vag: 'bg-green-500/20 text-green-300 border-green-500/40',
   levererad: 'bg-green-500/20 text-green-300 border-green-500/40',
   kan_ej_levereras: 'bg-red-500/20 text-red-300 border-red-500/40',
+};
+
+export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
+  restock: 'Påfyllning',
+  crate_pickup: 'Tombackar',
+  waste_pickup: 'Avfall',
+};
+
+export const PRIORITY_LABELS: Record<RequestPriority, string> = {
+  kan_vanta: 'När tid finns',
+  inom_20: 'Inom 20 min',
+  akut: 'Akut',
+  normal: 'Inom 20 min',
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, Package, Clock, AlertTriangle } from 'lucide-react';
-import { supabase, RestockRequest, STATUS_LABELS, STATUS_COLORS } from '../lib/supabase';
+import { supabase, RestockRequest, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
 function timeAgo(dateStr: string): string {
@@ -76,6 +76,18 @@ export default function History() {
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-white font-semibold">{req.locations?.name || '—'}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-800 text-gray-300 border-gray-700">
+                    {REQUEST_TYPE_LABELS[req.request_type ?? 'restock']}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                    req.priority === 'akut'
+                      ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                      : req.priority === 'inom_20' || req.priority === 'normal'
+                        ? 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+                        : 'bg-gray-800 text-gray-400 border-gray-700'
+                  }`}>
+                    {PRIORITY_LABELS[req.priority] ?? PRIORITY_LABELS.inom_20}
+                  </span>
                   {req.priority === 'akut' && (
                     <span className="flex items-center gap-1 text-red-400 text-xs">
                       <AlertTriangle className="w-3 h-3" /> AKUT

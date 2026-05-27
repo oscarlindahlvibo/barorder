@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, RefreshCw, X } from 'lucide-react';
-import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS } from '../lib/supabase';
+import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS, RequestType } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
 function timeAgo(dateStr: string): string {
@@ -16,7 +16,44 @@ interface NewOrderAlert {
   location: string;
   items: string;
   priority: string;
+  type: string;
   time: number;
+}
+
+function getRequestType(request: RestockRequest): RequestType {
+  return request.request_type ?? 'restock';
+}
+
+function getItemsText(req: RestockRequest): string {
+  return req.restock_request_items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || '';
+}
+
+function getPriorityRank(request: RestockRequest): number {
+  if (request.priority === 'akut') return 0;
+  if (request.priority === 'inom_20' || request.priority === 'normal') return 1;
+  return 2;
+}
+
+function sortRequests(requests: RestockRequest[]): RestockRequest[] {
+  return [...requests].sort((a, b) => {
+    const priorityDiff = getPriorityRank(a) - getPriorityRank(b);
+    if (priorityDiff !== 0) return priorityDiff;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+}
+
+function isNearDeadline(request: RestockRequest): boolean {
+  if (request.priority !== 'inom_20' && request.priority !== 'normal') return false;
+  if (request.status !== 'mottagen' && request.status !== 'pa_vag') return false;
+  const minutesSinceCreated = (Date.now() - new Date(request.created_at).getTime()) / 60000;
+  return minutesSinceCreated >= 15 && minutesSinceCreated < 20;
+}
+
+function isPastDeadline(request: RestockRequest): boolean {
+  if (request.priority !== 'inom_20' && request.priority !== 'normal') return false;
+  if (request.status !== 'mottagen' && request.status !== 'pa_vag') return false;
+  const minutesSinceCreated = (Date.now() - new Date(request.created_at).getTime()) / 60000;
+  return minutesSinceCreated >= 20;
 }
 
 export default function Dashboard() {
@@ -24,6 +61,7 @@ export default function Dashboard() {
   const [requests, setRequests] = useState<RestockRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'orders' | 'service'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -63,16 +101,29 @@ export default function Dashboard() {
       gain.connect(ctx.destination);
 
       if (isAkut) {
-        // Urgent alarm: 3 rapid high beeps
-        osc.frequency.setValueAtTime(1000, ctx.currentTime);
-        osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.15);
-        osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.3);
-        osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.45);
-        osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.6);
-        gain.gain.setValueAtTime(0.4, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1850, ctx.currentTime);
+        osc.frequency.setValueAtTime(2450, ctx.currentTime + 0.08);
+        osc.frequency.setValueAtTime(1850, ctx.currentTime + 0.16);
+        osc.frequency.setValueAtTime(2450, ctx.currentTime + 0.24);
+        osc.frequency.setValueAtTime(1850, ctx.currentTime + 0.32);
+        osc.frequency.setValueAtTime(2450, ctx.currentTime + 0.4);
+        osc.frequency.setValueAtTime(1850, ctx.currentTime + 0.48);
+        osc.frequency.setValueAtTime(2450, ctx.currentTime + 0.56);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime + 0.07);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime + 0.16);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime + 0.23);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime + 0.24);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime + 0.31);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime + 0.32);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime + 0.39);
+        gain.gain.setValueAtTime(0.65, ctx.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.75);
         osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.8);
+        osc.stop(ctx.currentTime + 0.75);
       } else {
         // Normal: single pleasant chime
         osc.frequency.setValueAtTime(880, ctx.currentTime);
@@ -92,14 +143,24 @@ export default function Dashboard() {
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
         const location = req.locations?.name || 'Okänd plats';
-        const items = req.restock_request_items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || '';
-        const title = req.priority === 'akut' ? `AKUT! Ny beställning — ${location}` : `Ny beställning — ${location}`;
-        new Notification(title, {
+        const items = getItemsText(req);
+        const typeLabel = REQUEST_TYPE_LABELS[getRequestType(req)];
+        const title = req.priority === 'akut' ? `AKUT! ${typeLabel} — ${location}` : `${typeLabel} — ${location}`;
+        const options = {
           body: items,
-          icon: '/vite.svg',
+          icon: '/icon.svg',
+          badge: '/icon.svg',
           tag: req.id,
           requireInteraction: req.priority === 'akut',
-        });
+        };
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready
+            .then(registration => registration.showNotification(title, options))
+            .catch(() => new Notification(title, options));
+        } else {
+          new Notification(title, options);
+        }
       }
     } catch {
       // Notification not available
@@ -108,7 +169,7 @@ export default function Dashboard() {
 
   function showAlertPopup(req: RestockRequest) {
     const location = req.locations?.name || 'Okänd plats';
-    const items = req.restock_request_items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || '';
+    const items = getItemsText(req);
 
     if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
     setAlert({
@@ -116,10 +177,11 @@ export default function Dashboard() {
       location,
       items,
       priority: req.priority,
+      type: REQUEST_TYPE_LABELS[getRequestType(req)],
       time: Date.now(),
     });
 
-    // Auto-dismiss after 8 seconds for normal, 15 for akut
+    // Auto-dismiss after 8 seconds for standard priority, 15 for urgent.
     const duration = req.priority === 'akut' ? 15000 : 8000;
     alertTimerRef.current = setTimeout(() => setAlert(null), duration);
   }
@@ -205,6 +267,14 @@ export default function Dashboard() {
 
   const activeCount = requests.filter(r => r.status === 'mottagen' || r.status === 'pa_vag').length;
   const akutCount = requests.filter(r => r.priority === 'akut' && (r.status === 'mottagen' || r.status === 'pa_vag')).length;
+  const displayedRequests = sortRequests(
+    requests.filter(req => {
+      const type = getRequestType(req);
+      if (typeFilter === 'orders') return type === 'restock';
+      if (typeFilter === 'service') return type !== 'restock';
+      return true;
+    })
+  );
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
@@ -265,7 +335,31 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Filter */}
+        {/* Type filter */}
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {([
+            { id: 'all', label: 'Alla' },
+            { id: 'orders', label: 'Ordrar' },
+            { id: 'service', label: 'Service' },
+          ] as { id: typeof typeFilter; label: string }[]).map(option => (
+            <button
+              key={option.id}
+              onClick={() => {
+                setTypeFilter(option.id);
+                setExpandedId(null);
+              }}
+              className={`h-9 rounded-lg text-sm font-medium border transition-all ${
+                typeFilter === option.id
+                  ? 'bg-orange-500 border-orange-500 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-400'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status filter */}
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => setFilter('active')}
@@ -325,13 +419,15 @@ export default function Dashboard() {
           <div className="flex justify-center py-12">
             <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
           </div>
-        ) : requests.length === 0 ? (
+        ) : displayedRequests.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500">Inga aktiva beställningar</p>
+            <p className="text-gray-500">
+              {filter === 'active' ? 'Inga aktiva ärenden' : 'Inga ärenden'}
+            </p>
           </div>
         ) : (
-          requests.map(req => (
+          displayedRequests.map(req => (
             <RequestCard
               key={req.id}
               request={req}
@@ -365,7 +461,7 @@ export default function Dashboard() {
                 <p className={`font-bold text-lg ${
                   alert.priority === 'akut' ? 'text-red-200' : 'text-white'
                 }`}>
-                  {alert.priority === 'akut' ? 'AKUT BESTÄLLNING!' : 'Ny beställning!'}
+                  {alert.priority === 'akut' ? `AKUT ${alert.type.toUpperCase()}!` : `Ny ${alert.type.toLowerCase()}!`}
                 </p>
                 <p className="text-gray-300 font-semibold">{alert.location}</p>
                 <p className="text-gray-400 text-sm mt-1 truncate">{alert.items}</p>
@@ -401,18 +497,48 @@ function RequestCard({
   updating: boolean;
 }) {
   const isAkut = request.priority === 'akut';
+  const nearDeadline = isNearDeadline(request);
+  const pastDeadline = isPastDeadline(request);
   const isActive = request.status === 'mottagen' || request.status === 'pa_vag';
+  const isPicking = request.status === 'pa_vag';
+  const typeLabel = REQUEST_TYPE_LABELS[getRequestType(request)];
+  const priorityLabel = pastDeadline
+    ? 'Passerat deadline'
+    : nearDeadline
+      ? 'Nära deadline'
+      : PRIORITY_LABELS[request.priority] ?? PRIORITY_LABELS.inom_20;
 
   return (
     <div className={`rounded-xl border overflow-hidden transition-all ${
-      isAkut && isActive
+      isPicking
+        ? 'border-green-500/70 bg-green-950/20 shadow-green-900/20 shadow-lg'
+        : isAkut && isActive
         ? 'border-red-500/60 bg-red-950/30 shadow-red-900/20 shadow-lg'
+        : nearDeadline || pastDeadline
+          ? 'border-orange-500/70 bg-orange-950/20 shadow-orange-900/20 shadow-lg'
         : 'border-gray-800 bg-gray-900'
     }`}>
-      {isAkut && isActive && (
+      {isPicking && (
+        <div className="bg-green-500 px-4 py-1.5 flex items-center gap-2">
+          <Package className="w-4 h-4 text-white" />
+          <span className="text-white text-sm font-bold">PLOCKAS</span>
+        </div>
+      )}
+      {!isPicking && isAkut && isActive && (
         <div className="bg-red-500 px-4 py-1.5 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-white" />
-          <span className="text-white text-sm font-bold">AKUT BESTÄLLNING</span>
+          <span className="text-white text-sm font-bold">AKUT {typeLabel.toUpperCase()}</span>
+        </div>
+      )}
+      {!isPicking && !isAkut && (nearDeadline || pastDeadline) && (
+        <div className="bg-orange-500 px-4 py-1.5 flex items-center gap-2">
+          {pastDeadline
+            ? <AlertTriangle className="w-4 h-4 text-white" />
+            : <Clock className="w-4 h-4 text-white" />
+          }
+          <span className="text-white text-sm font-bold">
+            {pastDeadline ? 'PASSERAT DEADLINE' : 'NÄRA DEADLINE'}
+          </span>
         </div>
       )}
 
@@ -423,8 +549,22 @@ function RequestCard({
               <span className="text-white font-semibold text-base">
                 {request.locations?.name || '—'}
               </span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-800 text-gray-300 border-gray-700">
+                {typeLabel}
+              </span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[request.status]}`}>
                 {STATUS_LABELS[request.status]}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                isAkut
+                  ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                  : nearDeadline || pastDeadline
+                    ? 'bg-orange-500/25 text-orange-200 border-orange-500/50'
+                  : request.priority === 'inom_20' || request.priority === 'normal'
+                    ? 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+                    : 'bg-gray-800 text-gray-400 border-gray-700'
+              }`}>
+                {priorityLabel}
               </span>
             </div>
             <div className="flex items-center gap-3 mt-1">
