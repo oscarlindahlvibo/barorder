@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, LogOut, RefreshCw, ShieldAlert, UserCheck, Wrench } from 'lucide-react';
 import { supabase, PRIORITY_LABELS, REQUEST_TYPE_LABELS, RequestStatus, RestockRequest, STATUS_COLORS, STATUS_LABELS } from '../lib/supabase';
 import { useApp } from '../lib/store';
@@ -37,6 +37,10 @@ function iconFor(type: string) {
   return UserCheck;
 }
 
+function getItemsText(req: RestockRequest): string {
+  return req.restock_request_items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || '';
+}
+
 function sortStaffRequests(requests: RestockRequest[]) {
   return [...requests].sort((a, b) => {
     const priorityDiff = (a.priority === 'akut' ? 0 : 1) - (b.priority === 'akut' ? 0 : 1);
@@ -52,6 +56,9 @@ export default function StaffDashboard() {
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const audioRef = useRef<AudioContext | null>(null);
+  const prevIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadDoneRef = useRef(false);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -64,6 +71,71 @@ export default function StaffDashboard() {
     const enabled = await enableLockedScreenPush(currentUser);
     setNotificationsEnabled(enabled);
   }
+
+  const playAlert = useCallback((requestType?: string) => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new AudioContext();
+      }
+      const ctx = audioRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (requestType === 'security_call') {
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+
+        for (let step = 0; step < 40; step += 1) {
+          const t = ctx.currentTime + step * 0.25;
+          osc.frequency.setValueAtTime(step % 2 === 0 ? 1650 : 2350, t);
+          gain.gain.setValueAtTime(0.75, t);
+          gain.gain.setValueAtTime(0.03, t + 0.12);
+        }
+
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 10);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 10);
+      } else {
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(660, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+      }
+    } catch {
+      // Audio not available
+    }
+  }, []);
+
+  const sendBrowserNotification = useCallback((req: RestockRequest) => {
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const location = req.locations?.name || 'Okänd plats';
+        const typeLabel = REQUEST_TYPE_LABELS[req.request_type ?? 'security_call'];
+        const title = req.priority === 'akut' ? `AKUT! ${typeLabel} - ${location}` : `${typeLabel} - ${location}`;
+        const options = {
+          body: getItemsText(req) || 'Nytt personalärende väntar.',
+          icon: '/icon.svg',
+          badge: '/icon.svg',
+          tag: req.id,
+          requireInteraction: req.priority === 'akut',
+        };
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready
+            .then(registration => registration.showNotification(title, options))
+            .catch(() => new Notification(title, options));
+        } else {
+          new Notification(title, options);
+        }
+      }
+    } catch {
+      // Notification not available
+    }
+  }, []);
 
   const fetchRequests = useCallback(async () => {
     const query = supabase
@@ -82,9 +154,19 @@ export default function StaffDashboard() {
 
   const refreshRequests = useCallback(async () => {
     const data = await fetchRequests();
+    if (initialLoadDoneRef.current) {
+      data
+        .filter(req => req.status === 'mottagen' && !prevIdsRef.current.has(req.id))
+        .forEach(req => {
+          playAlert(req.request_type);
+          sendBrowserNotification(req);
+        });
+    }
+    prevIdsRef.current = new Set(data.filter(req => req.status === 'mottagen').map(req => req.id));
+    initialLoadDoneRef.current = true;
     setRequests(data);
     return data;
-  }, [fetchRequests]);
+  }, [fetchRequests, playAlert, sendBrowserNotification]);
 
   useEffect(() => {
     setLoading(true);
@@ -107,6 +189,13 @@ export default function StaffDashboard() {
         event: 'UPDATE',
         schema: 'public',
         table: 'restock_requests',
+      }, () => {
+        refreshRequests();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'restock_request_items',
       }, () => {
         refreshRequests();
       })
