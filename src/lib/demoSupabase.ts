@@ -1,7 +1,20 @@
 import type { AppUser, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem;
+interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  role: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -15,6 +28,7 @@ interface DemoDb {
   products: Product[];
   restock_requests: RestockRequest[];
   restock_request_items: RestockRequestItem[];
+  push_subscriptions: PushSubscriptionRow[];
 }
 
 const now = new Date().toISOString();
@@ -72,6 +86,7 @@ const seedDb: DemoDb = {
     { id: 'item-demo-2', request_id: 'req-demo-1', product_id: 'prod-lager', product_name: 'Ljus lager', quantity: 2, unit: 'krt', created_at: now },
     { id: 'item-demo-3', request_id: 'req-demo-2', product_id: null, product_name: 'Tömning av tombackar', quantity: 6, unit: 'hämtning', created_at: now },
   ],
+  push_subscriptions: [],
 };
 
 function clone<T>(value: T): T {
@@ -87,6 +102,10 @@ function loadDb(): DemoDb {
   const db = JSON.parse(raw) as DemoDb;
   if (!db.users.some(user => user.pin === '5555')) {
     db.users.push({ id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now });
+    saveDb(db);
+  }
+  if (!db.push_subscriptions) {
+    db.push_subscriptions = [];
     saveDb(db);
   }
   return db;
@@ -113,6 +132,8 @@ class DemoQuery {
   private filters: Filter[] = [];
   private orders: Order[] = [];
   private insertRows: Record<string, unknown>[] | null = null;
+  private upsertRows: Record<string, unknown>[] | null = null;
+  private upsertConflict = 'id';
   private updateValues: Record<string, unknown> | null = null;
   private deleting = false;
   private wantsSingle = false;
@@ -157,6 +178,12 @@ class DemoQuery {
     return this;
   }
 
+  upsert(values: Record<string, unknown> | Record<string, unknown>[], options?: { onConflict?: string }) {
+    this.upsertRows = Array.isArray(values) ? values : [values];
+    this.upsertConflict = options?.onConflict ?? 'id';
+    return this;
+  }
+
   update(values: Record<string, unknown>) {
     this.updateValues = values;
     return this;
@@ -187,6 +214,32 @@ class DemoQuery {
 
   private run() {
     const db = loadDb();
+
+    if (this.upsertRows) {
+      const rows = db[this.table] as Row[];
+      const changed: Row[] = [];
+
+      this.upsertRows.forEach(values => {
+        const existing = rows.find(row => (
+          row as unknown as Record<string, unknown>
+        )[this.upsertConflict] === values[this.upsertConflict]);
+
+        if (existing) {
+          Object.assign(existing, values);
+          if ('updated_at' in existing) existing.updated_at = new Date().toISOString();
+          changed.push(existing);
+          this.notify(this.table, 'UPDATE', existing);
+        } else {
+          const inserted = this.createRow(values);
+          rows.push(inserted);
+          changed.push(inserted);
+          this.notify(this.table, 'INSERT', inserted);
+        }
+      });
+
+      saveDb(db);
+      return this.format(changed, db);
+    }
 
     if (this.insertRows) {
       const inserted = this.insertRows.map(values => this.createRow(values));
@@ -248,6 +301,7 @@ class DemoQuery {
     if (this.table === 'locations') return { active: true, sort_order: 0, ...base } as Location;
     if (this.table === 'products') return { active: true, sort_order: 0, ...base } as Product;
     if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', request_type: 'restock', priority: 'inom_20', ...base } as RestockRequest;
+    if (this.table === 'push_subscriptions') return { active: true, updated_at: createdAt, ...base } as PushSubscriptionRow;
     return base as RestockRequestItem;
   }
 
@@ -298,5 +352,10 @@ export function createDemoSupabaseClient() {
       };
     },
     removeChannel() {},
+    functions: {
+      async invoke() {
+        return { data: null, error: null };
+      },
+    },
   };
 }

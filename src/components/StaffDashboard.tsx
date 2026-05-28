@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, LogOut, RefreshCw, ShieldAlert, UserCheck, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, LogOut, RefreshCw, ShieldAlert, UserCheck, Wrench } from 'lucide-react';
 import { supabase, PRIORITY_LABELS, REQUEST_TYPE_LABELS, RequestStatus, RestockRequest, STATUS_COLORS, STATUS_LABELS } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import { enableLockedScreenPush } from '../lib/pushNotifications';
 
 const STAFF_TYPES = ['security_call', 'it_support', 'serving_manager'];
 const STAFF_STATUS_LABELS: Partial<Record<RequestStatus, string>> = {
@@ -50,8 +51,21 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
-  async function fetchRequests() {
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationsEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  async function requestNotificationPermission() {
+    if (!currentUser) return;
+    const enabled = await enableLockedScreenPush(currentUser);
+    setNotificationsEnabled(enabled);
+  }
+
+  const fetchRequests = useCallback(async () => {
     const query = supabase
       .from('restock_requests')
       .select(`*, users(id, name, role), locations(id, name), restock_request_items(*)`)
@@ -64,15 +78,20 @@ export default function StaffDashboard() {
 
     const { data } = await query as { data: RestockRequest[] | null };
     return sortStaffRequests(data || []);
-  }
+  }, [filter]);
+
+  const refreshRequests = useCallback(async () => {
+    const data = await fetchRequests();
+    setRequests(data);
+    return data;
+  }, [fetchRequests]);
 
   useEffect(() => {
     setLoading(true);
-    fetchRequests().then(data => {
-      setRequests(data);
+    refreshRequests().then(() => {
       setLoading(false);
     });
-  }, [filter]);
+  }, [refreshRequests]);
 
   useEffect(() => {
     const channel = supabase
@@ -82,25 +101,45 @@ export default function StaffDashboard() {
         schema: 'public',
         table: 'restock_requests',
       }, () => {
-        fetchRequests().then(setRequests);
+        refreshRequests();
       })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'restock_requests',
       }, () => {
-        fetchRequests().then(setRequests);
+        refreshRequests();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [filter]);
+  }, [refreshRequests]);
+
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === 'visible') refreshRequests();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshRequests();
+    }, 10000);
+
+    window.addEventListener('focus', refreshWhenActive);
+    window.addEventListener('online', refreshWhenActive);
+    document.addEventListener('visibilitychange', refreshWhenActive);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshWhenActive);
+      window.removeEventListener('online', refreshWhenActive);
+      document.removeEventListener('visibilitychange', refreshWhenActive);
+    };
+  }, [refreshRequests]);
 
   async function updateStatus(id: string, status: RequestStatus) {
     setUpdatingId(id);
     await supabase.from('restock_requests').update({ status }).eq('id', id);
-    const data = await fetchRequests();
-    setRequests(data);
+    await refreshRequests();
     setUpdatingId(null);
   }
 
@@ -115,12 +154,26 @@ export default function StaffDashboard() {
             <h1 className="text-white font-bold text-lg">Tillkalla personal</h1>
             <p className="text-gray-400 text-xs">{currentUser?.name}</p>
           </div>
-          <button
-            onClick={logout}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={requestNotificationPermission}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                notificationsEnabled
+                  ? 'text-green-400 bg-green-500/10 hover:bg-green-500/20'
+                  : 'text-gray-400 bg-gray-800 hover:text-white hover:bg-gray-700'
+              }`}
+              title={notificationsEnabled ? 'Notiser aktiva' : 'Aktivera notiser'}
+            >
+              {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              <span>{notificationsEnabled ? 'Pa' : 'Off'}</span>
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-3 mt-3">

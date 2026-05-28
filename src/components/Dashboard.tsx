@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, RefreshCw, X } from 'lucide-react';
 import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS, RequestType } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import { enableLockedScreenPush } from '../lib/pushNotifications';
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const [alert, setAlert] = useState<NewOrderAlert | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const prevIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadDoneRef = useRef(false);
   const alertTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Check notification state on mount
@@ -91,9 +93,9 @@ export default function Dashboard() {
   }, []);
 
   async function requestNotificationPermission() {
-    if (!('Notification' in window)) return;
-    const perm = await Notification.requestPermission();
-    setNotificationsEnabled(perm === 'granted');
+    if (!currentUser) return;
+    const enabled = await enableLockedScreenPush(currentUser);
+    setNotificationsEnabled(enabled);
     setShowNotifPrompt(false);
   }
 
@@ -175,7 +177,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  function showAlertPopup(req: RestockRequest) {
+  const showAlertPopup = useCallback((req: RestockRequest) => {
     const location = req.locations?.name || 'Okänd plats';
     const items = getItemsText(req);
 
@@ -192,9 +194,9 @@ export default function Dashboard() {
     // Auto-dismiss after 8 seconds for standard priority, 15 for urgent.
     const duration = req.priority === 'akut' ? 15000 : 8000;
     alertTimerRef.current = setTimeout(() => setAlert(null), duration);
-  }
+  }, []);
 
-  async function fetchRequests() {
+  const fetchRequests = useCallback(async () => {
     const query = supabase
       .from('restock_requests')
       .select(`
@@ -211,17 +213,39 @@ export default function Dashboard() {
 
     const { data } = await query as { data: RestockRequest[] | null };
     return data || [];
-  }
+  }, [filter]);
+
+  const handleFreshData = useCallback((data: RestockRequest[], notify: boolean) => {
+    if (notify && initialLoadDoneRef.current) {
+      const newRequests = data.filter(req => {
+        const type = getRequestType(req);
+        return req.status === 'mottagen' && !isStaffCall(type) && !prevIdsRef.current.has(req.id);
+      });
+
+      newRequests.forEach(req => {
+        playAlert(req.priority === 'akut');
+        sendBrowserNotification(req);
+        showAlertPopup(req);
+      });
+    }
+
+    prevIdsRef.current = new Set(data.filter(r => r.status === 'mottagen').map(r => r.id));
+    initialLoadDoneRef.current = true;
+    setRequests(data);
+  }, [playAlert, sendBrowserNotification, showAlertPopup]);
+
+  const refreshRequests = useCallback(async (notify = true) => {
+    const data = await fetchRequests();
+    handleFreshData(data, notify);
+    return data;
+  }, [fetchRequests, handleFreshData]);
 
   useEffect(() => {
     setLoading(true);
-    fetchRequests().then((data: RestockRequest[]) => {
-      setRequests(data);
-      const mottagenIds = new Set(data.filter(r => r.status === 'mottagen').map(r => r.id));
-      prevIdsRef.current = mottagenIds;
+    refreshRequests(false).then(() => {
       setLoading(false);
     });
-  }, [filter]);
+  }, [refreshRequests]);
 
   useEffect(() => {
     const channel = supabase
@@ -239,7 +263,7 @@ export default function Dashboard() {
           .maybeSingle()
           .then(({ data: newReq }: { data: RestockRequest | null }) => {
             if (!newReq) return;
-            const isNew = !prevIdsRef.current.has(newReq.id);
+            const isNew = !prevIdsRef.current.has(newReq.id) && !isStaffCall(getRequestType(newReq));
             if (isNew) {
               prevIdsRef.current.add(newReq.id);
               playAlert(newReq.priority === 'akut');
@@ -247,7 +271,7 @@ export default function Dashboard() {
               showAlertPopup(newReq);
             }
             // Refresh full list
-            fetchRequests().then(setRequests);
+            refreshRequests(false);
           });
       })
       .on('postgres_changes', {
@@ -255,12 +279,33 @@ export default function Dashboard() {
         schema: 'public',
         table: 'restock_requests',
       }, () => {
-        fetchRequests().then(setRequests);
+        refreshRequests(false);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [filter, playAlert, sendBrowserNotification]);
+  }, [playAlert, refreshRequests, sendBrowserNotification, showAlertPopup]);
+
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === 'visible') refreshRequests(true);
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshRequests(true);
+    }, 10000);
+
+    window.addEventListener('focus', refreshWhenActive);
+    window.addEventListener('online', refreshWhenActive);
+    document.addEventListener('visibilitychange', refreshWhenActive);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshWhenActive);
+      window.removeEventListener('online', refreshWhenActive);
+      document.removeEventListener('visibilitychange', refreshWhenActive);
+    };
+  }, [refreshRequests]);
 
   async function updateStatus(requestId: string, status: RequestStatus) {
     setUpdatingId(requestId);
@@ -269,8 +314,7 @@ export default function Dashboard() {
       .update({ status })
       .eq('id', requestId);
     setUpdatingId(null);
-    const data = await fetchRequests();
-    setRequests(data);
+    await refreshRequests(false);
   }
 
   const activeCount = requests.filter(r => r.status === 'mottagen' || r.status === 'pa_vag').length;

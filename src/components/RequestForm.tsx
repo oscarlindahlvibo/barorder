@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Minus, Plus, Send, ChevronLeft, Loader2, Check, AlertTriangle, Package, Trash2, Clock, Wrench, UserCheck, X } from 'lucide-react';
 import { supabase, Product, CATEGORIES, RequestPriority, RequestType, RestockRequest } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import { notifyRequestCreated } from '../lib/pushNotifications';
 
 interface CartItem {
   product: Product;
@@ -93,7 +94,7 @@ export default function RequestForm() {
       .then(({ data }: { data: Product[] | null }) => setProducts(data || []));
   }, []);
 
-  async function loadActiveStaffCalls() {
+  const loadActiveStaffCalls = useCallback(async () => {
     if (!currentLocation) return;
 
     const { data } = await supabase
@@ -104,7 +105,7 @@ export default function RequestForm() {
       .in('status', ['mottagen', 'pa_vag']) as { data: RestockRequest[] | null };
 
     setActiveStaffCalls(data || []);
-  }
+  }, [currentLocation]);
 
   useEffect(() => {
     loadActiveStaffCalls();
@@ -128,7 +129,28 @@ export default function RequestForm() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [currentLocation]);
+  }, [currentLocation, loadActiveStaffCalls]);
+
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === 'visible') loadActiveStaffCalls();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadActiveStaffCalls();
+    }, 10000);
+
+    window.addEventListener('focus', refreshWhenActive);
+    window.addEventListener('online', refreshWhenActive);
+    document.addEventListener('visibilitychange', refreshWhenActive);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshWhenActive);
+      window.removeEventListener('online', refreshWhenActive);
+      document.removeEventListener('visibilitychange', refreshWhenActive);
+    };
+  }, [loadActiveStaffCalls]);
 
   const categoriesWithProducts = CATEGORIES.filter(cat =>
     products.some(p => p.category === cat)
@@ -206,6 +228,7 @@ export default function RequestForm() {
         }];
 
     await supabase.from('restock_request_items').insert(items);
+    await notifyRequestCreated(req.id);
 
     setSending(false);
     setSent(true);
@@ -249,6 +272,7 @@ export default function RequestForm() {
       quantity: 1,
       unit: call.unit,
     });
+    await notifyRequestCreated(req.id);
 
     setSendingCall(null);
     await loadActiveStaffCalls();
