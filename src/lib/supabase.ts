@@ -77,6 +77,15 @@ export interface RestockRequestItem {
   products?: Product;
 }
 
+export interface AdminChatMessage {
+  id: string;
+  user_id: string | null;
+  target_role: UserRole | 'all';
+  message: string;
+  created_at: string;
+  users?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
+}
+
 export const CATEGORIES = [
   'Öl',
   'Cider',

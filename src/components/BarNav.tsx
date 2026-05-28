@@ -1,4 +1,4 @@
-import { ShoppingCart, History, LogOut } from 'lucide-react';
+import { ShoppingCart, MessageSquare, History, LogOut } from 'lucide-react';
 import { useApp } from '../lib/store';
 
 export default function BarNav() {
@@ -14,6 +14,15 @@ export default function BarNav() {
       >
         <ShoppingCart className="w-6 h-6" />
         <span className="text-xs font-medium">Beställ</span>
+      </button>
+      <button
+        onClick={() => setView('chat')}
+        className={`flex-1 min-h-16 flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
+          view === 'chat' ? 'text-orange-500' : 'text-gray-500 hover:text-gray-300'
+        }`}
+      >
+        <MessageSquare className="w-6 h-6" />
+        <span className="text-xs font-medium">Chatt</span>
       </button>
       <button
         onClick={() => setView('history')}

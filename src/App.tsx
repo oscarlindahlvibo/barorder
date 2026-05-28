@@ -7,12 +7,13 @@ import StaffDashboard from './components/StaffDashboard';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
+import ChatPanel from './components/ChatPanel';
 
 function AppContent() {
   const { view, currentUser } = useApp();
 
   const isBarStaff = currentUser?.role === 'barpersonal';
-  const showBarNav = isBarStaff && (view === 'request' || view === 'history');
+  const showBarNav = isBarStaff && (view === 'request' || view === 'chat' || view === 'history');
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -25,6 +26,11 @@ function AppContent() {
       )}
       {view === 'dashboard' && <Dashboard />}
       {view === 'staff-dashboard' && <StaffDashboard />}
+      {view === 'chat' && (
+        <div className={showBarNav ? 'pb-safe-nav' : ''}>
+          <ChatPanel />
+        </div>
+      )}
       {view === 'history' && (
         <div className={showBarNav ? 'pb-safe-nav' : ''}>
           <History />

@@ -1,4 +1,4 @@
-import type { AppUser, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
+import type { AdminChatMessage, AppUser, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
 
 interface PushSubscriptionRow {
   id: string;
@@ -13,8 +13,8 @@ interface PushSubscriptionRow {
   updated_at: string;
 }
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow;
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'admin_chat_messages';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | AdminChatMessage;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -29,6 +29,7 @@ interface DemoDb {
   restock_requests: RestockRequest[];
   restock_request_items: RestockRequestItem[];
   push_subscriptions: PushSubscriptionRow[];
+  admin_chat_messages: AdminChatMessage[];
 }
 
 const now = new Date().toISOString();
@@ -87,6 +88,7 @@ const seedDb: DemoDb = {
     { id: 'item-demo-3', request_id: 'req-demo-2', product_id: null, product_name: 'Tömning av tombackar', quantity: 6, unit: 'hämtning', created_at: now },
   ],
   push_subscriptions: [],
+  admin_chat_messages: [],
 };
 
 function clone<T>(value: T): T {
@@ -106,6 +108,10 @@ function loadDb(): DemoDb {
   }
   if (!db.push_subscriptions) {
     db.push_subscriptions = [];
+    saveDb(db);
+  }
+  if (!db.admin_chat_messages) {
+    db.admin_chat_messages = [];
     saveDb(db);
   }
   return db;
@@ -302,6 +308,7 @@ class DemoQuery {
     if (this.table === 'products') return { active: true, sort_order: 0, ...base } as Product;
     if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', request_type: 'restock', priority: 'inom_20', ...base } as RestockRequest;
     if (this.table === 'push_subscriptions') return { active: true, updated_at: createdAt, ...base } as PushSubscriptionRow;
+    if (this.table === 'admin_chat_messages') return { user_id: null, target_role: 'all', message: '', ...base } as AdminChatMessage;
     return base as RestockRequestItem;
   }
 
@@ -319,6 +326,12 @@ class DemoQuery {
     let data: unknown = rows;
     if (this.table === 'restock_requests') {
       data = (rows as RestockRequest[]).map(row => withRelations(row, db));
+    }
+    if (this.table === 'admin_chat_messages') {
+      data = (rows as AdminChatMessage[]).map(row => ({
+        ...row,
+        users: db.users.find(user => user.id === row.user_id) ?? null,
+      }));
     }
 
     if (this.wantsSingle || this.wantsMaybeSingle) {

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare } from 'lucide-react';
 import { supabase, AppUser, Location, Product, CATEGORIES } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import ChatPanel from './ChatPanel';
 
-type AdminTab = 'stats' | 'users' | 'locations' | 'products';
+type AdminTab = 'stats' | 'chat' | 'users' | 'locations' | 'products';
 
 export default function AdminPanel() {
   const { setView } = useApp();
@@ -25,6 +26,7 @@ export default function AdminPanel() {
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex gap-1 overflow-x-auto">
         {([
           { id: 'stats', label: 'Statistik', Icon: BarChart2 },
+          { id: 'chat', label: 'Chatt', Icon: MessageSquare },
           { id: 'users', label: 'Personal', Icon: Users },
           { id: 'locations', label: 'Platser', Icon: MapPin },
           { id: 'products', label: 'Produkter', Icon: Package },
@@ -46,6 +48,7 @@ export default function AdminPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {tab === 'stats' && <StatsTab />}
+        {tab === 'chat' && <ChatPanel embedded />}
         {tab === 'users' && <UsersTab />}
         {tab === 'locations' && <LocationsTab />}
         {tab === 'products' && <ProductsTab />}

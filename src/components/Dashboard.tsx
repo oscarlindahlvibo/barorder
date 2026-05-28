@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, RefreshCw, X } from 'lucide-react';
+import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Settings, LogOut, MessageSquare, RefreshCw, X } from 'lucide-react';
 import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS, RequestType } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import { enableLockedScreenPush } from '../lib/pushNotifications';
@@ -366,6 +366,13 @@ export default function Dashboard() {
                 <Settings className="w-5 h-5" />
               </button>
             )}
+            <button
+              onClick={() => setView('chat')}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              title="Chatt"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setView('history')}
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
