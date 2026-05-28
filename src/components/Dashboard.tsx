@@ -288,7 +288,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-white font-bold text-lg">Lagerdashboard</h1>
@@ -451,7 +451,7 @@ export default function Dashboard() {
 
       {/* New order alert popup */}
       {alert && (
-        <div className="fixed inset-x-0 top-4 z-50 px-4 animate-slide-down">
+        <div className="fixed inset-x-0 top-safe-toast z-50 px-4 animate-slide-down">
           <div className={`max-w-lg mx-auto rounded-2xl border-2 p-4 shadow-2xl ${
             alert.priority === 'akut'
               ? 'bg-red-900/95 border-red-500 shadow-red-900/50'

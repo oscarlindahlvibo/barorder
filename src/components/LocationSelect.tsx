@@ -26,7 +26,7 @@ export default function LocationSelect() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
-      <div className="px-4 pt-8 pb-4">
+      <div className="px-4 pt-8 pb-4 safe-area-inset-top">
         <p className="text-orange-400 text-sm font-medium">Inloggad som</p>
         <h2 className="text-white text-2xl font-bold">{currentUser?.name}</h2>
       </div>

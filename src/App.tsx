@@ -19,14 +19,14 @@ function AppContent() {
       {view === 'login' && <PinLogin />}
       {view === 'location-select' && <LocationSelect />}
       {view === 'request' && (
-        <div className={showBarNav ? 'pb-20' : ''}>
+        <div className={showBarNav ? 'pb-safe-nav' : ''}>
           <RequestForm />
         </div>
       )}
       {view === 'dashboard' && <Dashboard />}
       {view === 'staff-dashboard' && <StaffDashboard />}
       {view === 'history' && (
-        <div className={showBarNav ? 'pb-20' : ''}>
+        <div className={showBarNav ? 'pb-safe-nav' : ''}>
           <History />
         </div>
       )}

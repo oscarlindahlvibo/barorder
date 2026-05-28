@@ -35,6 +35,22 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe-nav {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pb-safe-panel {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .top-safe-toast {
+    top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
   .active\:scale-98:active {
     transform: scale(0.98);
   }

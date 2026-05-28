@@ -310,7 +310,7 @@ export default function RequestForm() {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3 sticky top-0 z-10 safe-area-inset-top">
         <button
           onClick={() => setView('location-select')}
           className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
@@ -522,7 +522,7 @@ export default function RequestForm() {
 
       {/* Cart summary + note + send */}
       {canSend && (
-        <div className="bg-gray-900 border-t border-gray-800 p-4 pb-24 space-y-3">
+        <div className="bg-gray-900 border-t border-gray-800 p-4 pb-safe-panel space-y-3">
           {/* Selected items summary */}
           <div className="space-y-1">
             {requestType === 'restock' ? cart.map(item => (
