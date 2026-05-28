@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, LogOut, RefreshCw, ShieldAlert, UserCheck, Wrench } from 'lucide-react';
+import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, LogOut, MessageSquare, RefreshCw, ShieldAlert, UserCheck, Wrench } from 'lucide-react';
 import { supabase, PRIORITY_LABELS, REQUEST_TYPE_LABELS, RequestStatus, RestockRequest, STATUS_COLORS, STATUS_LABELS } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import { enableLockedScreenPush } from '../lib/pushNotifications';
+import { useUnreadChatCount } from '../lib/chatUnread';
 
 const STAFF_TYPES = ['security_call', 'it_support', 'serving_manager'];
 const STAFF_STATUS_LABELS: Partial<Record<RequestStatus, string>> = {
@@ -50,7 +51,7 @@ function sortStaffRequests(requests: RestockRequest[]) {
 }
 
 export default function StaffDashboard() {
-  const { currentUser, logout } = useApp();
+  const { currentUser, setView, logout } = useApp();
   const [requests, setRequests] = useState<RestockRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
@@ -59,6 +60,7 @@ export default function StaffDashboard() {
   const audioRef = useRef<AudioContext | null>(null);
   const prevIdsRef = useRef<Set<string>>(new Set());
   const initialLoadDoneRef = useRef(false);
+  const unreadChatCount = useUnreadChatCount(currentUser);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -255,6 +257,18 @@ export default function StaffDashboard() {
             >
               {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
               <span>{notificationsEnabled ? 'Pa' : 'Off'}</span>
+            </button>
+            <button
+              onClick={() => setView('chat')}
+              className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              title="Chatt"
+            >
+              <MessageSquare className="w-5 h-5" />
+              {unreadChatCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] leading-5 text-center font-bold">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </button>
             <button
               onClick={logout}

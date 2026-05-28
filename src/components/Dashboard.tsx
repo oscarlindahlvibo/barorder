@@ -3,6 +3,7 @@ import { Bell, BellOff, Clock, AlertTriangle, Package, ChevronDown, History, Set
 import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS, RequestType } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import { enableLockedScreenPush } from '../lib/pushNotifications';
+import { useUnreadChatCount } from '../lib/chatUnread';
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -76,6 +77,7 @@ export default function Dashboard() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [alert, setAlert] = useState<NewOrderAlert | null>(null);
+  const unreadChatCount = useUnreadChatCount(currentUser);
   const audioRef = useRef<AudioContext | null>(null);
   const prevIdsRef = useRef<Set<string>>(new Set());
   const initialLoadDoneRef = useRef(false);
@@ -368,10 +370,15 @@ export default function Dashboard() {
             )}
             <button
               onClick={() => setView('chat')}
-              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
               title="Chatt"
             >
               <MessageSquare className="w-5 h-5" />
+              {unreadChatCount > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] leading-5 text-center font-bold">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setView('history')}

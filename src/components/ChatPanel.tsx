@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, Loader2, MessageSquare, Send } from 'lucide-react';
 import { AdminChatMessage, AppUser, supabase, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import { markChatRead } from '../lib/chatUnread';
 
 type TargetRole = UserRole | 'all';
 
@@ -45,6 +46,7 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
       .order('created_at', { ascending: true });
 
     setMessages((data || []).filter((chat: AdminChatMessage) => canReadMessage(chat, currentUser)));
+    markChatRead(currentUser);
   }, [currentUser]);
 
   useEffect(() => {
@@ -167,7 +169,11 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
     return <div className="h-full flex flex-col">{chatContent}</div>;
   }
 
-  const backView = currentUser?.role === 'barpersonal' ? 'request' : 'dashboard';
+  const backView = currentUser?.role === 'barpersonal'
+    ? 'request'
+    : currentUser?.role === 'personal'
+      ? 'staff-dashboard'
+      : 'dashboard';
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
