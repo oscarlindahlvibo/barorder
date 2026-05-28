@@ -60,7 +60,7 @@ Deno.serve(async req => {
 
   const requestType = (request.request_type ?? 'restock') as RequestType;
   const targetRoles = STAFF_CALL_TYPES.includes(requestType)
-    ? ['personal', 'admin']
+    ? ['personal', 'serveringsansvarig', 'admin']
     : ['lager', 'admin'];
 
   const { data: subscriptions } = await supabase

@@ -4,6 +4,7 @@ import LocationSelect from './components/LocationSelect';
 import RequestForm from './components/RequestForm';
 import Dashboard from './components/Dashboard';
 import StaffDashboard from './components/StaffDashboard';
+import ServingManagerDashboard from './components/ServingManagerDashboard';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -26,6 +27,7 @@ function AppContent() {
       )}
       {view === 'dashboard' && <Dashboard />}
       {view === 'staff-dashboard' && <StaffDashboard />}
+      {view === 'serving-dashboard' && <ServingManagerDashboard />}
       {view === 'chat' && (
         <div className={showBarNav ? 'pb-safe-nav' : ''}>
           <ChatPanel />

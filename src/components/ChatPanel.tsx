@@ -11,6 +11,7 @@ const TARGETS: { id: TargetRole; label: string }[] = [
   { id: 'admin', label: 'Admin' },
   { id: 'lager', label: 'Lager' },
   { id: 'barpersonal', label: 'Barer' },
+  { id: 'serveringsansvarig', label: 'Serveringsansvarig' },
   { id: 'personal', label: 'Tillkalla personal' },
 ];
 
@@ -19,6 +20,7 @@ const ROLE_LABELS: Record<TargetRole, string> = {
   admin: 'Admin',
   lager: 'Lager',
   barpersonal: 'Barer',
+  serveringsansvarig: 'Serveringsansvarig',
   personal: 'Tillkalla personal',
 };
 
@@ -171,6 +173,8 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
 
   const backView = currentUser?.role === 'barpersonal'
     ? 'request'
+    : currentUser?.role === 'serveringsansvarig'
+      ? 'serving-dashboard'
     : currentUser?.role === 'personal'
       ? 'staff-dashboard'
       : 'dashboard';

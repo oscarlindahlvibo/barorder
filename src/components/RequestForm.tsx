@@ -70,7 +70,11 @@ const STAFF_CALL_TYPES: StaffCallType[] = [
   'serving_manager',
 ];
 
-export default function RequestForm() {
+interface RequestFormProps {
+  onBack?: () => void;
+}
+
+export default function RequestForm({ onBack }: RequestFormProps) {
   const { currentUser, currentLocation, setView } = useApp();
   const [products, setProducts] = useState<Product[]>([]);
   const [requestType, setRequestType] = useState<RequestType>('restock');
@@ -336,7 +340,7 @@ export default function RequestForm() {
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-3 sticky top-0 z-10 safe-area-inset-top">
         <button
-          onClick={() => setView('location-select')}
+          onClick={onBack ?? (() => setView('location-select'))}
           className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
         >
           <ChevronLeft className="w-6 h-6" />

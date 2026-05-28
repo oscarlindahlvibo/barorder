@@ -29,7 +29,9 @@ export default function PinLogin() {
       return;
     }
 
-    const nextView = data.role === 'personal'
+    const nextView = data.role === 'serveringsansvarig'
+      ? 'serving-dashboard'
+      : data.role === 'personal'
       ? 'staff-dashboard'
       : (data.role === 'lager' || data.role === 'admin')
         ? 'dashboard'
@@ -116,7 +118,7 @@ export default function PinLogin() {
         )}
 
         <p className="text-center text-gray-600 text-xs mt-8">
-          Demo: PIN 0000 = Admin · 1234 = Barpersonal · 5555 = Personal · 6789 = Lager
+          Demo: PIN 0000 = Admin · 1234 = Barpersonal · 4444 = Servering · 5555 = Personal · 6789 = Lager
         </p>
       </div>
     </div>

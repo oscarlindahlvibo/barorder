@@ -12,7 +12,7 @@ export const supabase: any = isDemoMode
   ? createDemoSupabaseClient()
   : createClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal';
+export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal' | 'serveringsansvarig';
 
 export interface AppUser {
   id: string;

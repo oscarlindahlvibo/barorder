@@ -50,7 +50,11 @@ function sortStaffRequests(requests: RestockRequest[]) {
   });
 }
 
-export default function StaffDashboard() {
+interface StaffDashboardProps {
+  embedded?: boolean;
+}
+
+export default function StaffDashboard({ embedded = false }: StaffDashboardProps) {
   const { currentUser, setView, logout } = useApp();
   const [requests, setRequests] = useState<RestockRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,7 +243,7 @@ export default function StaffDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
+      {!embedded && <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-white font-bold text-lg">Tillkalla personal</h1>
@@ -312,7 +316,7 @@ export default function StaffDashboard() {
             Alla
           </button>
         </div>
-      </div>
+      </div>}
 
       <div className="flex-1 p-4 space-y-3">
         {loading ? (

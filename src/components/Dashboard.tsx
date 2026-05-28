@@ -66,7 +66,11 @@ function isPastDeadline(request: RestockRequest): boolean {
   return minutesSinceCreated >= 20;
 }
 
-export default function Dashboard() {
+interface DashboardProps {
+  embedded?: boolean;
+}
+
+export default function Dashboard({ embedded = false }: DashboardProps) {
   const { currentUser, setView, logout } = useApp();
   const [requests, setRequests] = useState<RestockRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,7 +345,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
+      {!embedded && <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-white font-bold text-lg">Lagerdashboard</h1>
@@ -456,7 +460,7 @@ export default function Dashboard() {
             Alla
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Notification onboarding banner */}
       {showNotifPrompt && (

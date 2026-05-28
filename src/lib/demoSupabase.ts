@@ -39,6 +39,7 @@ const seedDb: DemoDb = {
     { id: 'user-admin', name: 'Admin', pin: '0000', role: 'admin', active: true, created_at: now },
     { id: 'user-bar', name: 'Barpersonal', pin: '1234', role: 'barpersonal', active: true, created_at: now },
     { id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now },
+    { id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now },
     { id: 'user-lager', name: 'Lager', pin: '6789', role: 'lager', active: true, created_at: now },
   ],
   locations: [
@@ -104,6 +105,10 @@ function loadDb(): DemoDb {
   const db = JSON.parse(raw) as DemoDb;
   if (!db.users.some(user => user.pin === '5555')) {
     db.users.push({ id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now });
+    saveDb(db);
+  }
+  if (!db.users.some(user => user.pin === '4444')) {
+    db.users.push({ id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now });
     saveDb(db);
   }
   if (!db.push_subscriptions) {
