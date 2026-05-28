@@ -281,6 +281,13 @@ export default function Dashboard() {
       }, () => {
         refreshRequests(false);
       })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'restock_request_items',
+      }, () => {
+        refreshRequests(false);
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -288,12 +295,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     const refreshWhenActive = () => {
-      if (document.visibilityState === 'visible') refreshRequests(true);
+      refreshRequests(true);
     };
 
     const intervalId = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refreshRequests(true);
-    }, 10000);
+      refreshRequests(true);
+    }, 3000);
 
     window.addEventListener('focus', refreshWhenActive);
     window.addEventListener('online', refreshWhenActive);

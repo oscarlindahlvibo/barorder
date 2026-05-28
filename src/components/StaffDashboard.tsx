@@ -117,12 +117,12 @@ export default function StaffDashboard() {
 
   useEffect(() => {
     const refreshWhenActive = () => {
-      if (document.visibilityState === 'visible') refreshRequests();
+      refreshRequests();
     };
 
     const intervalId = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refreshRequests();
-    }, 10000);
+      refreshRequests();
+    }, 3000);
 
     window.addEventListener('focus', refreshWhenActive);
     window.addEventListener('online', refreshWhenActive);

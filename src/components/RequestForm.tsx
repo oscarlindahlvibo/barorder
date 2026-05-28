@@ -133,12 +133,12 @@ export default function RequestForm() {
 
   useEffect(() => {
     const refreshWhenActive = () => {
-      if (document.visibilityState === 'visible') loadActiveStaffCalls();
+      loadActiveStaffCalls();
     };
 
     const intervalId = window.setInterval(() => {
-      if (document.visibilityState === 'visible') loadActiveStaffCalls();
-    }, 10000);
+      loadActiveStaffCalls();
+    }, 3000);
 
     window.addEventListener('focus', refreshWhenActive);
     window.addEventListener('online', refreshWhenActive);
