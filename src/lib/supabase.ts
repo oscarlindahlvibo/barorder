@@ -12,7 +12,7 @@ export const supabase: any = isDemoMode
   ? createDemoSupabaseClient()
   : createClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal' | 'serveringsansvarig';
+export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal' | 'serveringsansvarig' | 'kitchen' | 'kitchen_display';
 
 export interface AppUser {
   id: string;
@@ -83,6 +83,19 @@ export interface AdminChatMessage {
   target_role: UserRole | 'all';
   message: string;
   created_at: string;
+  users?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
+}
+
+export type KitchenOrderStatus = 'ready' | 'dismissed';
+
+export interface KitchenOrder {
+  id: string;
+  order_number: string;
+  status: KitchenOrderStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  dismissed_at: string | null;
   users?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
 }
 

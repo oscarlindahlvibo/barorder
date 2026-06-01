@@ -1,4 +1,4 @@
-import type { AdminChatMessage, AppUser, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
+import type { AdminChatMessage, AppUser, KitchenOrder, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
 
 interface PushSubscriptionRow {
   id: string;
@@ -13,8 +13,8 @@ interface PushSubscriptionRow {
   updated_at: string;
 }
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'admin_chat_messages';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | AdminChatMessage;
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'admin_chat_messages' | 'kitchen_orders';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | AdminChatMessage | KitchenOrder;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -30,6 +30,7 @@ interface DemoDb {
   restock_request_items: RestockRequestItem[];
   push_subscriptions: PushSubscriptionRow[];
   admin_chat_messages: AdminChatMessage[];
+  kitchen_orders: KitchenOrder[];
 }
 
 const now = new Date().toISOString();
@@ -41,6 +42,8 @@ const seedDb: DemoDb = {
     { id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now },
     { id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now },
     { id: 'user-lager', name: 'Lager', pin: '6789', role: 'lager', active: true, created_at: now },
+    { id: 'user-kitchen', name: 'Kök', pin: '2468', role: 'kitchen', active: true, created_at: now },
+    { id: 'user-kitchen-display', name: 'Köksskärm gäster', pin: '1357', role: 'kitchen_display', active: true, created_at: now },
   ],
   locations: [
     { id: 'loc-main', name: 'Stora baren', active: true, sort_order: 1, created_at: now },
@@ -90,6 +93,7 @@ const seedDb: DemoDb = {
   ],
   push_subscriptions: [],
   admin_chat_messages: [],
+  kitchen_orders: [],
 };
 
 function clone<T>(value: T): T {
@@ -111,12 +115,24 @@ function loadDb(): DemoDb {
     db.users.push({ id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now });
     saveDb(db);
   }
+  if (!db.users.some(user => user.pin === '2468')) {
+    db.users.push({ id: 'user-kitchen', name: 'Kök', pin: '2468', role: 'kitchen', active: true, created_at: now });
+    saveDb(db);
+  }
+  if (!db.users.some(user => user.pin === '1357')) {
+    db.users.push({ id: 'user-kitchen-display', name: 'Köksskärm gäster', pin: '1357', role: 'kitchen_display', active: true, created_at: now });
+    saveDb(db);
+  }
   if (!db.push_subscriptions) {
     db.push_subscriptions = [];
     saveDb(db);
   }
   if (!db.admin_chat_messages) {
     db.admin_chat_messages = [];
+    saveDb(db);
+  }
+  if (!db.kitchen_orders) {
+    db.kitchen_orders = [];
     saveDb(db);
   }
   return db;
@@ -314,6 +330,7 @@ class DemoQuery {
     if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', request_type: 'restock', priority: 'inom_20', ...base } as RestockRequest;
     if (this.table === 'push_subscriptions') return { active: true, updated_at: createdAt, ...base } as PushSubscriptionRow;
     if (this.table === 'admin_chat_messages') return { user_id: null, target_role: 'all', message: '', ...base } as AdminChatMessage;
+    if (this.table === 'kitchen_orders') return { status: 'ready', created_by: null, updated_at: createdAt, dismissed_at: null, ...base } as KitchenOrder;
     return base as RestockRequestItem;
   }
 
@@ -336,6 +353,12 @@ class DemoQuery {
       data = (rows as AdminChatMessage[]).map(row => ({
         ...row,
         users: db.users.find(user => user.id === row.user_id) ?? null,
+      }));
+    }
+    if (this.table === 'kitchen_orders') {
+      data = (rows as KitchenOrder[]).map(row => ({
+        ...row,
+        users: db.users.find(user => user.id === row.created_by) ?? null,
       }));
     }
 

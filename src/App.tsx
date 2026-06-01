@@ -5,6 +5,8 @@ import RequestForm from './components/RequestForm';
 import Dashboard from './components/Dashboard';
 import StaffDashboard from './components/StaffDashboard';
 import ServingManagerDashboard from './components/ServingManagerDashboard';
+import KitchenDashboard from './components/KitchenDashboard';
+import KitchenDisplay from './components/KitchenDisplay';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -28,6 +30,8 @@ function AppContent() {
       {view === 'dashboard' && <Dashboard />}
       {view === 'staff-dashboard' && <StaffDashboard />}
       {view === 'serving-dashboard' && <ServingManagerDashboard />}
+      {view === 'kitchen-dashboard' && <KitchenDashboard />}
+      {view === 'kitchen-display' && <KitchenDisplay />}
       {view === 'chat' && (
         <div className={showBarNav ? 'pb-safe-nav' : ''}>
           <ChatPanel />

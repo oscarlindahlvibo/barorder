@@ -3,6 +3,12 @@ import { Delete, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
+const BOOTSTRAP_USERS = {
+  '4444': { name: 'Serveringsansvarig', role: 'serveringsansvarig' },
+  '2468': { name: 'Kök', role: 'kitchen' },
+  '1357': { name: 'Köksskärm gäster', role: 'kitchen_display' },
+} as const;
+
 export default function PinLogin() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -21,13 +27,15 @@ export default function PinLogin() {
       .eq('active', true)
       .maybeSingle();
 
-    if (!data && finalPin === '4444') {
+    const bootstrapUser = BOOTSTRAP_USERS[finalPin as keyof typeof BOOTSTRAP_USERS];
+
+    if (!data && bootstrapUser) {
       const result = await supabase
         .from('users')
         .insert({
-          name: 'Serveringsansvarig',
-          pin: '4444',
-          role: 'serveringsansvarig',
+          name: bootstrapUser.name,
+          pin: finalPin,
+          role: bootstrapUser.role,
           active: true,
         })
         .select()
@@ -45,7 +53,11 @@ export default function PinLogin() {
       return;
     }
 
-    const nextView = data.role === 'serveringsansvarig'
+    const nextView = data.role === 'kitchen'
+      ? 'kitchen-dashboard'
+      : data.role === 'kitchen_display'
+      ? 'kitchen-display'
+      : data.role === 'serveringsansvarig'
       ? 'serving-dashboard'
       : data.role === 'personal'
       ? 'staff-dashboard'
@@ -134,7 +146,7 @@ export default function PinLogin() {
         )}
 
         <p className="text-center text-gray-600 text-xs mt-8">
-          Demo: PIN 0000 = Admin · 1234 = Barpersonal · 4444 = Servering · 5555 = Personal · 6789 = Lager
+          Demo: PIN 0000 = Admin · 1234 = Bar · 2468 = Kök · 1357 = Gästskärm · 4444 = Servering · 5555 = Personal · 6789 = Lager
         </p>
       </div>
     </div>

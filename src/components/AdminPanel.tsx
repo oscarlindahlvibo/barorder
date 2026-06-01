@@ -231,7 +231,15 @@ function UsersTab() {
     setForm({ name: user.name, pin: user.pin, role: user.role });
   }
 
-  const ROLE_LABELS: Record<string, string> = { barpersonal: 'Barpersonal', lager: 'Lager', admin: 'Admin', personal: 'Personalansvarig', serveringsansvarig: 'Serveringsansvarig' };
+  const ROLE_LABELS: Record<string, string> = {
+    barpersonal: 'Barpersonal',
+    lager: 'Lager',
+    admin: 'Admin',
+    personal: 'Personalansvarig',
+    serveringsansvarig: 'Serveringsansvarig',
+    kitchen: 'Kök',
+    kitchen_display: 'Köksskärm gäster',
+  };
 
   const showForm = adding || editing !== null;
 
@@ -264,6 +272,8 @@ function UsersTab() {
             <option value="admin">Admin</option>
             <option value="personal">Personalansvarig</option>
             <option value="serveringsansvarig">Serveringsansvarig</option>
+            <option value="kitchen">Kök</option>
+            <option value="kitchen_display">Köksskärm gäster</option>
           </select>
           <div className="flex gap-2">
             <button
