@@ -1,5 +1,11 @@
-const CACHE_NAME = 'barorder-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CACHE_NAME = 'atm-personal-shell-v2';
+const APP_SHELL = [
+  '/',
+  '/manifest.webmanifest',
+  '/app-icon-192.png',
+  '/app-icon-512.png',
+  '/apple-touch-icon.png',
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -19,11 +25,41 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/', clone));
+          return response;
+        })
+        .catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  if (!isSameOrigin) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
 
   event.respondWith(
-    fetch(event.request).catch(() =>
-      caches.match(event.request).then(response => response || caches.match('/'))
-    )
+    caches.match(event.request).then(cachedResponse => {
+      const networkResponse = fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || networkResponse;
+    })
   );
 });
 
@@ -38,8 +74,8 @@ self.addEventListener('push', event => {
   const title = payload.title || 'Ny barorder';
   const options = {
     body: payload.body || 'Ett nytt ärende väntar i lagerdashboarden.',
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/app-icon-192.png',
+    badge: '/app-icon-192.png',
     tag: payload.tag || 'barorder',
     data: { url: payload.url || '/' },
     requireInteraction: Boolean(payload.requireInteraction),

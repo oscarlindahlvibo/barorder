@@ -4,16 +4,19 @@ import { RefreshCw, WifiOff, X } from 'lucide-react';
 export default function ConnectivityBanner() {
   const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
   const [dismissed, setDismissed] = useState(false);
+  const [reloadBlocked, setReloadBlocked] = useState(false);
 
   useEffect(() => {
     function handleOffline() {
       setOffline(true);
       setDismissed(false);
+      setReloadBlocked(false);
     }
 
     function handleOnline() {
       setOffline(false);
       setDismissed(false);
+      setReloadBlocked(false);
     }
 
     window.addEventListener('offline', handleOffline);
@@ -27,6 +30,14 @@ export default function ConnectivityBanner() {
 
   if (!offline || dismissed) return null;
 
+  function reloadWhenOnline() {
+    if (!navigator.onLine) {
+      setReloadBlocked(true);
+      return;
+    }
+    window.location.reload();
+  }
+
   return (
     <div className="fixed inset-x-3 top-safe-toast z-50 rounded-xl border border-red-500/40 bg-red-950/95 shadow-2xl shadow-red-950/30 backdrop-blur">
       <div className="flex items-start gap-3 p-4">
@@ -38,12 +49,17 @@ export default function ConnectivityBanner() {
           <p className="text-red-100/80 text-sm leading-snug">
             Appen försöker behålla aktuell vy, men nya order och statusändringar kan inte hämtas förrän internet är tillbaka.
           </p>
+          {reloadBlocked && (
+            <p className="mt-2 text-red-100 text-sm font-semibold">
+              Vänta tills internet är tillbaka innan du laddar om.
+            </p>
+          )}
           <button
-            onClick={() => window.location.reload()}
-            className="mt-3 h-10 px-3 rounded-lg bg-white text-red-950 hover:bg-red-50 font-semibold flex items-center gap-2"
+            onClick={reloadWhenOnline}
+            className="mt-3 h-10 px-3 rounded-lg bg-white/70 text-red-950 font-semibold flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
-            Ladda om sidan
+            Försök ladda om
           </button>
         </div>
         <button
