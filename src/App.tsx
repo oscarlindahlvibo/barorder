@@ -13,6 +13,7 @@ import BarNav from './components/BarNav';
 import ChatPanel from './components/ChatPanel';
 import ConnectivityBanner from './components/ConnectivityBanner';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import NativePushBootstrap from './components/NativePushBootstrap';
 
 function AppContent() {
   const { view, currentUser } = useApp();
@@ -24,6 +25,7 @@ function AppContent() {
     <AppErrorBoundary>
       <div className="min-h-screen bg-gray-950">
         <ConnectivityBanner />
+        <NativePushBootstrap user={currentUser} />
         {view === 'login' && <PinLogin />}
         {view === 'location-select' && <LocationSelect />}
         {view === 'request' && (

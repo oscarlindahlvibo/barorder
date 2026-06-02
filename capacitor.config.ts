@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import '@capacitor/push-notifications';
 
 const config: CapacitorConfig = {
   appId: 'se.asedatruckmeet.barorder',
@@ -7,6 +8,11 @@ const config: CapacitorConfig = {
   bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
+  },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'banner', 'list'],
+    },
   },
 };
 

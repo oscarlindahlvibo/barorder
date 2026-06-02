@@ -4,4 +4,5 @@
     <string name="title_activity_main">ÅTM Personal</string>
     <string name="package_name">se.asedatruckmeet.barorder</string>
     <string name="custom_url_scheme">se.asedatruckmeet.barorder</string>
+    <string name="default_notification_channel_id">urgent</string>
 </resources>

@@ -13,8 +13,20 @@ interface PushSubscriptionRow {
   updated_at: string;
 }
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'admin_chat_messages' | 'kitchen_orders';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | AdminChatMessage | KitchenOrder;
+interface NativePushTokenRow {
+  id: string;
+  user_id: string;
+  role: string;
+  platform: string;
+  token: string;
+  user_agent: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'native_push_tokens' | 'admin_chat_messages' | 'kitchen_orders';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | NativePushTokenRow | AdminChatMessage | KitchenOrder;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -29,6 +41,7 @@ interface DemoDb {
   restock_requests: RestockRequest[];
   restock_request_items: RestockRequestItem[];
   push_subscriptions: PushSubscriptionRow[];
+  native_push_tokens: NativePushTokenRow[];
   admin_chat_messages: AdminChatMessage[];
   kitchen_orders: KitchenOrder[];
 }
@@ -92,6 +105,7 @@ const seedDb: DemoDb = {
     { id: 'item-demo-3', request_id: 'req-demo-2', product_id: null, product_name: 'Tömning av tombackar', quantity: 6, unit: 'hämtning', created_at: now },
   ],
   push_subscriptions: [],
+  native_push_tokens: [],
   admin_chat_messages: [],
   kitchen_orders: [],
 };
@@ -125,6 +139,10 @@ function loadDb(): DemoDb {
   }
   if (!db.push_subscriptions) {
     db.push_subscriptions = [];
+    saveDb(db);
+  }
+  if (!db.native_push_tokens) {
+    db.native_push_tokens = [];
     saveDb(db);
   }
   if (!db.admin_chat_messages) {
@@ -329,6 +347,7 @@ class DemoQuery {
     if (this.table === 'products') return { active: true, sort_order: 0, ...base } as Product;
     if (this.table === 'restock_requests') return { updated_at: createdAt, status: 'mottagen', request_type: 'restock', priority: 'inom_20', ...base } as RestockRequest;
     if (this.table === 'push_subscriptions') return { active: true, updated_at: createdAt, ...base } as PushSubscriptionRow;
+    if (this.table === 'native_push_tokens') return { active: true, updated_at: createdAt, ...base } as NativePushTokenRow;
     if (this.table === 'admin_chat_messages') return { user_id: null, target_role: 'all', message: '', ...base } as AdminChatMessage;
     if (this.table === 'kitchen_orders') return { status: 'ready', created_by: null, updated_at: createdAt, dismissed_at: null, ...base } as KitchenOrder;
     return base as RestockRequestItem;
