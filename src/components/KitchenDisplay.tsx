@@ -58,18 +58,18 @@ export default function KitchenDisplay() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
-      <header className="px-8 py-6 border-b border-gray-800 bg-gray-900/90 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-green-500/15 border border-green-500/40 flex items-center justify-center">
-            <Utensils className="w-9 h-9 text-green-300" />
+      <header className="px-safe-screen pt-safe-header pb-4 sm:pb-6 border-b border-gray-800 bg-gray-900/90 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-green-500/15 border border-green-500/40 flex items-center justify-center flex-shrink-0">
+            <Utensils className="w-7 h-7 sm:w-9 sm:h-9 text-green-300" />
           </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-normal">Order klar</h1>
-            <p className="text-gray-400 text-xl">Hämta din order vid utlämningen</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-4xl font-black tracking-normal leading-tight">Order klar</h1>
+            <p className="text-gray-400 text-sm sm:text-xl leading-snug">Hämta din order vid utlämningen</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <div className="hidden sm:flex items-center gap-2 text-gray-300 text-2xl font-bold tabular-nums">
             <Clock className="w-6 h-6 text-gray-500" />
             {clock}
@@ -85,7 +85,7 @@ export default function KitchenDisplay() {
         </div>
       </header>
 
-      <main className="flex-1 p-8 overflow-hidden">
+      <main className="flex-1 p-4 sm:p-8 pb-safe-screen overflow-hidden">
         {orders.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center">
             <div className="w-24 h-24 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center mb-6">

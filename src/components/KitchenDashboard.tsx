@@ -88,26 +88,28 @@ export default function KitchenDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      <header className="bg-gray-900 border-b border-gray-800 px-5 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-lg bg-orange-500/15 border border-orange-500/40 flex items-center justify-center">
-            <Utensils className="w-6 h-6 text-orange-300" />
+      <header className="bg-gray-900 border-b border-gray-800 px-safe-screen pt-safe-header pb-3 sm:pb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-orange-500/15 border border-orange-500/40 flex items-center justify-center flex-shrink-0">
+            <Utensils className="w-6 h-6 sm:w-7 sm:h-7 text-orange-300" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold">Kök</h1>
-            <p className="text-sm text-gray-400">Markera ordernummer som klara</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold leading-tight">Kök</h1>
+            <p className="text-sm sm:text-base text-gray-400 leading-snug">Markera ordernummer som klara</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="h-10 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center gap-2"
+          className="h-11 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center gap-2 flex-shrink-0"
+          aria-label="Logga ut"
+          title="Logga ut"
         >
           <LogOut className="w-4 h-4" />
-          Logga ut
+          <span className="hidden sm:inline">Logga ut</span>
         </button>
       </header>
 
-      <main className="flex-1 grid lg:grid-cols-[420px_1fr] gap-4 p-4 overflow-hidden">
+      <main className="flex-1 grid lg:grid-cols-[420px_1fr] gap-4 p-4 pb-safe-screen overflow-y-auto lg:overflow-hidden">
         <section className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col">
           <div className="h-24 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center mb-4">
             <span className={`font-black tabular-nums ${orderNumber ? 'text-white text-6xl' : 'text-gray-700 text-3xl'}`}>

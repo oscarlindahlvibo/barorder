@@ -39,6 +39,19 @@
     padding-top: env(safe-area-inset-top, 0px);
   }
 
+  .pt-safe-header {
+    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+  }
+
+  .px-safe-screen {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  .pb-safe-screen {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .pb-safe-nav {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
