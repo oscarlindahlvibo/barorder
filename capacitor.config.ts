@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'se.asedatruckmeet.barorder',
-  appName: 'Barorder',
+  appName: 'ÅTM Personal',
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {

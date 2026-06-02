@@ -11,6 +11,8 @@ import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
 import ChatPanel from './components/ChatPanel';
+import ConnectivityBanner from './components/ConnectivityBanner';
+import AppErrorBoundary from './components/AppErrorBoundary';
 
 function AppContent() {
   const { view, currentUser } = useApp();
@@ -19,32 +21,35 @@ function AppContent() {
   const showBarNav = isBarStaff && (view === 'request' || view === 'chat' || view === 'history');
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {view === 'login' && <PinLogin />}
-      {view === 'location-select' && <LocationSelect />}
-      {view === 'request' && (
-        <div className={showBarNav ? 'pb-safe-nav' : ''}>
-          <RequestForm />
-        </div>
-      )}
-      {view === 'dashboard' && <Dashboard />}
-      {view === 'staff-dashboard' && <StaffDashboard />}
-      {view === 'serving-dashboard' && <ServingManagerDashboard />}
-      {view === 'kitchen-dashboard' && <KitchenDashboard />}
-      {view === 'kitchen-display' && <KitchenDisplay />}
-      {view === 'chat' && (
-        <div className={showBarNav ? 'pb-safe-nav' : ''}>
-          <ChatPanel />
-        </div>
-      )}
-      {view === 'history' && (
-        <div className={showBarNav ? 'pb-safe-nav' : ''}>
-          <History />
-        </div>
-      )}
-      {view === 'admin' && <AdminPanel />}
-      {showBarNav && <BarNav />}
-    </div>
+    <AppErrorBoundary>
+      <div className="min-h-screen bg-gray-950">
+        <ConnectivityBanner />
+        {view === 'login' && <PinLogin />}
+        {view === 'location-select' && <LocationSelect />}
+        {view === 'request' && (
+          <div className={showBarNav ? 'pb-safe-nav' : ''}>
+            <RequestForm />
+          </div>
+        )}
+        {view === 'dashboard' && <Dashboard />}
+        {view === 'staff-dashboard' && <StaffDashboard />}
+        {view === 'serving-dashboard' && <ServingManagerDashboard />}
+        {view === 'kitchen-dashboard' && <KitchenDashboard />}
+        {view === 'kitchen-display' && <KitchenDisplay />}
+        {view === 'chat' && (
+          <div className={showBarNav ? 'pb-safe-nav' : ''}>
+            <ChatPanel />
+          </div>
+        )}
+        {view === 'history' && (
+          <div className={showBarNav ? 'pb-safe-nav' : ''}>
+            <History />
+          </div>
+        )}
+        {view === 'admin' && <AdminPanel />}
+        {showBarNav && <BarNav />}
+      </div>
+    </AppErrorBoundary>
   );
 }
 
