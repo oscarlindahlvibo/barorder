@@ -1,4 +1,4 @@
-import type { AdminChatMessage, AppUser, KitchenOrder, Location, Product, RestockRequest, RestockRequestItem } from './supabase';
+import type { AdminChatMessage, AppUser, KitchenOrder, Location, Product, RestockRequest, RestockRequestItem, ScheduleEntry, SchedulePerson, SchedulePosition } from './supabase';
 
 interface PushSubscriptionRow {
   id: string;
@@ -25,8 +25,8 @@ interface NativePushTokenRow {
   updated_at: string;
 }
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'native_push_tokens' | 'admin_chat_messages' | 'kitchen_orders';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | NativePushTokenRow | AdminChatMessage | KitchenOrder;
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'native_push_tokens' | 'admin_chat_messages' | 'kitchen_orders' | 'schedule_entries' | 'schedule_positions' | 'schedule_people';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | NativePushTokenRow | AdminChatMessage | KitchenOrder | ScheduleEntry | SchedulePosition | SchedulePerson;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -44,19 +44,23 @@ interface DemoDb {
   native_push_tokens: NativePushTokenRow[];
   admin_chat_messages: AdminChatMessage[];
   kitchen_orders: KitchenOrder[];
+  schedule_entries: ScheduleEntry[];
+  schedule_positions: SchedulePosition[];
+  schedule_people: SchedulePerson[];
 }
 
 const now = new Date().toISOString();
 
 const seedDb: DemoDb = {
   users: [
-    { id: 'user-admin', name: 'Admin', username: 'admin', password_hash: null, pin: '0000', role: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display'], active: true, created_at: now },
+    { id: 'user-admin', name: 'Admin', username: 'admin', password_hash: null, pin: '0000', role: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display'], active: true, created_at: now },
     { id: 'user-bar', name: 'Barpersonal', username: 'bar', password_hash: null, pin: '1234', role: 'barpersonal', roles: ['barpersonal', 'lager'], active: true, created_at: now },
     { id: 'user-personal', name: 'Personalansvarig', username: 'personal', password_hash: null, pin: '5555', role: 'personal', roles: ['personal'], active: true, created_at: now },
     { id: 'user-serving', name: 'Serveringsansvarig', username: 'servering', password_hash: null, pin: '4444', role: 'serveringsansvarig', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'], active: true, created_at: now },
     { id: 'user-lager', name: 'Lager', username: 'lager', password_hash: null, pin: '6789', role: 'lager', roles: ['lager'], active: true, created_at: now },
     { id: 'user-kitchen', name: 'Kök', username: 'kok', password_hash: null, pin: '2468', role: 'kitchen', roles: ['kitchen'], active: true, created_at: now },
     { id: 'user-kitchen-display', name: 'Köksskärm gäster', username: 'gastskarm', password_hash: null, pin: '1357', role: 'kitchen_display', roles: ['kitchen_display'], active: true, created_at: now },
+    { id: 'user-schedule-display', name: 'Schemaskärm', username: 'schema', password_hash: null, pin: '8642', role: 'schedule_display', roles: ['schedule_display'], active: true, created_at: now },
   ],
   locations: [
     { id: 'loc-main', name: 'Stora baren', active: true, sort_order: 1, created_at: now },
@@ -108,6 +112,29 @@ const seedDb: DemoDb = {
   native_push_tokens: [],
   admin_chat_messages: [],
   kitchen_orders: [],
+  schedule_positions: [
+    { id: 'pos-stora-baren', name: 'Stora baren', active: true, sort_order: 1, created_at: now },
+    { id: 'pos-entre', name: 'Entré', active: true, sort_order: 2, created_at: now },
+    { id: 'pos-mat', name: 'Mat', active: true, sort_order: 3, created_at: now },
+    { id: 'pos-buffe', name: 'Buffé', active: true, sort_order: 4, created_at: now },
+    { id: 'pos-plock', name: 'Plock', active: true, sort_order: 5, created_at: now },
+  ],
+  schedule_people: [
+    { id: 'staff-anna', name: 'Anna', preferred_day: 'Fredag', available_start: '18:00', available_end: '02:00', note: null, active: true, sort_order: 1, created_at: now, updated_at: now },
+    { id: 'staff-erik', name: 'Erik', preferred_day: 'Fredag', available_start: '18:00', available_end: '02:00', note: null, active: true, sort_order: 2, created_at: now, updated_at: now },
+    { id: 'staff-malin', name: 'Malin', preferred_day: 'Fredag', available_start: '12:00', available_end: '19:00', note: null, active: true, sort_order: 3, created_at: now, updated_at: now },
+    { id: 'staff-kalle', name: 'Kalle', preferred_day: 'Fredag', available_start: '12:00', available_end: '19:00', note: null, active: true, sort_order: 4, created_at: now, updated_at: now },
+    { id: 'staff-nora', name: 'Nora', preferred_day: 'Lördag', available_start: '14:00', available_end: '20:00', note: null, active: true, sort_order: 5, created_at: now, updated_at: now },
+    { id: 'staff-sam', name: 'Sam', preferred_day: 'Lördag', available_start: '14:00', available_end: '20:00', note: null, active: true, sort_order: 6, created_at: now, updated_at: now },
+    { id: 'staff-tom', name: 'Tom', preferred_day: 'Lördag', available_start: '19:00', available_end: '02:00', note: null, active: true, sort_order: 7, created_at: now, updated_at: now },
+    { id: 'staff-alicia', name: 'Alicia', preferred_day: 'Lördag', available_start: '19:00', available_end: '02:00', note: null, active: true, sort_order: 8, created_at: now, updated_at: now },
+  ],
+  schedule_entries: [
+    { id: 'schedule-1', day: 'Fredag', position_id: 'pos-stora-baren', position: 'Stora baren', start_time: '19:00', end_time: '02:00', required_count: 10, assigned_staff_ids: ['staff-anna', 'staff-erik'], assigned_names: ['Anna', 'Erik'], note: null, active: true, sort_order: 1, created_at: now, updated_at: now },
+    { id: 'schedule-2', day: 'Fredag', position_id: 'pos-stora-baren', position: 'Stora baren', start_time: '12:00', end_time: '19:00', required_count: 3, assigned_staff_ids: ['staff-malin', 'staff-kalle'], assigned_names: ['Malin', 'Kalle'], note: null, active: true, sort_order: 2, created_at: now, updated_at: now },
+    { id: 'schedule-5', day: 'Lördag', position_id: 'pos-buffe', position: 'Buffé', start_time: '14:00', end_time: '20:00', required_count: 5, assigned_staff_ids: ['staff-nora', 'staff-sam'], assigned_names: ['Nora', 'Sam'], note: 'Fyll på med extrapersonal', active: true, sort_order: 5, created_at: now, updated_at: now },
+    { id: 'schedule-6', day: 'Lördag', position_id: 'pos-plock', position: 'Plock', start_time: '19:00', end_time: '02:00', required_count: 3, assigned_staff_ids: ['staff-tom', 'staff-alicia'], assigned_names: ['Tom', 'Alicia'], note: null, active: true, sort_order: 6, created_at: now, updated_at: now },
+  ],
 };
 
 function clone<T>(value: T): T {
@@ -122,13 +149,14 @@ function loadDb(): DemoDb {
   }
   const db = JSON.parse(raw) as DemoDb;
   const defaults: Record<string, Partial<AppUser>> = {
-    '0000': { username: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display'] },
+    '0000': { username: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display'] },
     '1234': { username: 'bar', roles: ['barpersonal', 'lager'] },
     '5555': { username: 'personal', roles: ['personal'] },
     '4444': { username: 'servering', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'] },
     '6789': { username: 'lager', roles: ['lager'] },
     '2468': { username: 'kok', roles: ['kitchen'] },
     '1357': { username: 'gastskarm', roles: ['kitchen_display'] },
+    '8642': { username: 'schema', roles: ['schedule_display'] },
   };
   let changedUsers = false;
   db.users.forEach(user => {
@@ -139,6 +167,10 @@ function loadDb(): DemoDb {
     }
     if (!user.roles || user.roles.length === 0) {
       user.roles = (defaultsForPin?.roles as AppUser['roles']) ?? [user.role];
+      changedUsers = true;
+    }
+    if (user.role === 'admin' && !user.roles?.includes('schedule_display')) {
+      user.roles = [...(user.roles || ['admin']), 'schedule_display'];
       changedUsers = true;
     }
   });
@@ -159,6 +191,10 @@ function loadDb(): DemoDb {
     db.users.push({ id: 'user-kitchen-display', name: 'Köksskärm gäster', username: 'gastskarm', password_hash: null, pin: '1357', role: 'kitchen_display', roles: ['kitchen_display'], active: true, created_at: now });
     saveDb(db);
   }
+  if (!db.users.some(user => user.pin === '8642')) {
+    db.users.push({ id: 'user-schedule-display', name: 'Schemaskärm', username: 'schema', password_hash: null, pin: '8642', role: 'schedule_display', roles: ['schedule_display'], active: true, created_at: now });
+    saveDb(db);
+  }
   if (!db.push_subscriptions) {
     db.push_subscriptions = [];
     saveDb(db);
@@ -173,6 +209,18 @@ function loadDb(): DemoDb {
   }
   if (!db.kitchen_orders) {
     db.kitchen_orders = [];
+    saveDb(db);
+  }
+  if (!db.schedule_entries) {
+    db.schedule_entries = clone(seedDb.schedule_entries);
+    saveDb(db);
+  }
+  if (!db.schedule_positions) {
+    db.schedule_positions = clone(seedDb.schedule_positions);
+    saveDb(db);
+  }
+  if (!db.schedule_people) {
+    db.schedule_people = clone(seedDb.schedule_people);
     saveDb(db);
   }
   return db;
@@ -372,6 +420,9 @@ class DemoQuery {
     if (this.table === 'native_push_tokens') return { active: true, updated_at: createdAt, ...base } as NativePushTokenRow;
     if (this.table === 'admin_chat_messages') return { user_id: null, target_role: 'all', message: '', ...base } as AdminChatMessage;
     if (this.table === 'kitchen_orders') return { status: 'ready', created_by: null, updated_at: createdAt, dismissed_at: null, ...base } as KitchenOrder;
+    if (this.table === 'schedule_entries') return { day: '', position: '', start_time: '19:00', end_time: '02:00', active: true, required_count: 1, assigned_names: [], note: null, sort_order: 0, updated_at: createdAt, ...base } as ScheduleEntry;
+    if (this.table === 'schedule_positions') return { active: true, sort_order: 0, ...base } as SchedulePosition;
+    if (this.table === 'schedule_people') return { active: true, preferred_day: 'Fredag', available_start: '19:00', available_end: '02:00', note: null, sort_order: 0, updated_at: createdAt, ...base } as SchedulePerson;
     return base as RestockRequestItem;
   }
 

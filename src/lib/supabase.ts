@@ -12,7 +12,15 @@ export const supabase: any = isDemoMode
   ? createDemoSupabaseClient()
   : createClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'barpersonal' | 'lager' | 'admin' | 'personal' | 'serveringsansvarig' | 'kitchen' | 'kitchen_display';
+export type UserRole =
+  | 'barpersonal'
+  | 'lager'
+  | 'admin'
+  | 'personal'
+  | 'serveringsansvarig'
+  | 'kitchen'
+  | 'kitchen_display'
+  | 'schedule_display';
 
 export interface AppUser {
   id: string;
@@ -34,6 +42,7 @@ export const ALL_USER_ROLES: UserRole[] = [
   'serveringsansvarig',
   'kitchen',
   'kitchen_display',
+  'schedule_display',
 ];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -44,6 +53,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   serveringsansvarig: 'Serveringsansvarig',
   kitchen: 'Kök',
   kitchen_display: 'Köksskärm gäster',
+  schedule_display: 'Schemaskärm',
 };
 
 export interface Location {
@@ -120,6 +130,44 @@ export interface KitchenOrder {
   updated_at: string;
   dismissed_at: string | null;
   users?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
+}
+
+export interface ScheduleEntry {
+  id: string;
+  day: string;
+  position_id?: string | null;
+  position: string;
+  start_time: string;
+  end_time: string;
+  required_count: number;
+  assigned_staff_ids?: string[] | null;
+  assigned_names: string[];
+  note: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SchedulePosition {
+  id: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface SchedulePerson {
+  id: string;
+  name: string;
+  preferred_day: string;
+  available_start: string;
+  available_end: string;
+  note: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export const CATEGORIES = [
