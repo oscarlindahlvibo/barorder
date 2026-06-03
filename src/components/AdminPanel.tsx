@@ -3,7 +3,7 @@ import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, P
 import { supabase, AppUser, Location, Product, CATEGORIES, ALL_USER_ROLES, ROLE_LABELS, ScheduleEntry, SchedulePerson, SchedulePosition, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import ChatPanel from './ChatPanel';
-import { getUserRoles, hashPassword } from '../lib/auth';
+import { getUserRoles, hashPassword, passwordMatches } from '../lib/auth';
 import RoleMenuButton from './RoleMenuButton';
 
 type AdminTab = 'stats' | 'chat' | 'users' | 'schedule' | 'locations' | 'products';
@@ -492,6 +492,7 @@ function overlapsSchedule(
 }
 
 function ScheduleTab() {
+  const { currentUser } = useApp();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [positions, setPositions] = useState<SchedulePosition[]>([]);
   const [people, setPeople] = useState<SchedulePerson[]>([]);
@@ -502,6 +503,10 @@ function ScheduleTab() {
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [importingPeople, setImportingPeople] = useState(false);
+  const [showClearPeopleConfirm, setShowClearPeopleConfirm] = useState(false);
+  const [clearPeoplePassword, setClearPeoplePassword] = useState('');
+  const [clearPeopleError, setClearPeopleError] = useState('');
+  const [clearingPeople, setClearingPeople] = useState(false);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPerson, setSavingPerson] = useState(false);
@@ -677,6 +682,33 @@ function ScheduleTab() {
     window.alert(`Import klar. ${created} nya, ${updated} uppdaterade.`);
   }
 
+  async function clearSchedulePeople() {
+    if (!currentUser || clearingPeople) return;
+    setClearPeopleError('');
+    const allowed = await passwordMatches(currentUser, clearPeoplePassword);
+    if (!allowed) {
+      setClearPeopleError('Fel lösenord.');
+      return;
+    }
+
+    setClearingPeople(true);
+    await supabase
+      .from('schedule_entries')
+      .update({ assigned_staff_ids: [], assigned_names: [] })
+      .not('id', 'is', null);
+    await supabase
+      .from('schedule_people')
+      .delete()
+      .not('id', 'is', null);
+
+    setClearingPeople(false);
+    setShowClearPeopleConfirm(false);
+    setClearPeoplePassword('');
+    resetPersonForm();
+    setForm(current => ({ ...current, assigned_staff_ids: [] }));
+    await load();
+  }
+
   async function togglePerson(person: SchedulePerson) {
     await supabase.from('schedule_people').update({ active: !person.active }).eq('id', person.id);
     load();
@@ -841,12 +873,63 @@ function ScheduleTab() {
           <div className="flex items-center gap-2">
             <h3 className="text-white font-semibold flex-1">{editingPerson ? 'Redigera schemapersonal' : 'Lägg till schemapersonal'}</h3>
             <button
+              onClick={() => {
+                setShowClearPeopleConfirm(true);
+                setClearPeopleError('');
+                setClearPeoplePassword('');
+              }}
+              disabled={people.length === 0}
+              className="h-9 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 disabled:opacity-40 disabled:hover:bg-red-500/10 text-red-300 border border-red-500/30 text-sm font-semibold"
+            >
+              Rensa alla
+            </button>
+            <button
               onClick={() => setShowImport(value => !value)}
               className="h-9 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold"
             >
               Klistra in från Excel
             </button>
           </div>
+          {showClearPeopleConfirm && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 space-y-3">
+              <div>
+                <p className="text-red-200 font-semibold">Rensa all schemapersonal?</p>
+                <p className="text-red-200/80 text-sm mt-1">
+                  Detta tar bort alla personer i schemapersonallistan och tömmer bokade namn från schemaraderna. Åtgärden kräver ditt lösenord.
+                </p>
+              </div>
+              <input
+                value={clearPeoplePassword}
+                onChange={e => setClearPeoplePassword(e.target.value)}
+                type="password"
+                autoComplete="current-password"
+                placeholder="Ditt lösenord"
+                className="w-full bg-gray-950 border border-red-500/30 rounded-xl px-3 py-2.5 text-white placeholder-red-200/40 focus:outline-none focus:border-red-400"
+              />
+              {clearPeopleError && <p className="text-red-300 text-sm">{clearPeopleError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={clearSchedulePeople}
+                  disabled={clearingPeople || !clearPeoplePassword}
+                  className="flex-1 h-10 bg-red-600 hover:bg-red-500 rounded-xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {clearingPeople ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  Rensa schemapersonal
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClearPeopleConfirm(false);
+                    setClearPeoplePassword('');
+                    setClearPeopleError('');
+                  }}
+                  disabled={clearingPeople}
+                  className="h-10 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 font-semibold disabled:opacity-50"
+                >
+                  Avbryt
+                </button>
+              </div>
+            </div>
+          )}
           {showImport && (
             <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 space-y-2">
               <textarea
