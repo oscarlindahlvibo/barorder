@@ -147,10 +147,12 @@ export default function PinLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 px-4 safe-area-inset-top safe-area-inset-bottom">
       <form onSubmit={handleLogin} className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-orange-500/15 border border-orange-500/40 mb-4">
-            <Lock className="w-9 h-9 text-orange-400" />
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">ÅTM Personal</h1>
+          <img
+            src="/aseda-truckmeet-logo.png"
+            alt="Åseda Truckmeet"
+            className="mx-auto mb-4 w-full max-w-[260px] brightness-0 invert"
+          />
+          <h1 className="text-2xl font-bold tracking-[0.22em] text-white">ÅTM PERSONAL</h1>
           <p className="text-gray-400 mt-1">Logga in för att välja arbetsläge</p>
         </div>
 
