@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, Check, ClipboardList, Loader2, LogOut, Paperclip, Plus, ShoppingBasket, Tag, X } from 'lucide-react';
 import { AppUser, PlanningAttachment, PlanningChecklistItem, PlanningPriority, PlanningTask, PlanningTaskStatus, ShoppingItem, supabase } from '../lib/supabase';
+import { getUserRoles } from '../lib/auth';
 import { useApp } from '../lib/store';
 import RoleMenuButton from './RoleMenuButton';
 
@@ -282,6 +283,10 @@ export default function EventPlanningDashboard() {
   }
 
   const allTags = Array.from(new Set(tasks.flatMap(task => task.tags))).sort((a, b) => a.localeCompare(b, 'sv'));
+  const planningUsers = useMemo(
+    () => users.filter(user => getUserRoles(user).includes('event_planning')),
+    [users],
+  );
   const visibleTasks = tasks
     .filter(task => task.archived === showArchivedTasks)
     .filter(task => tagFilter === 'all' || task.tags.includes(tagFilter))
@@ -354,7 +359,7 @@ export default function EventPlanningDashboard() {
               className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
             >
               <option value="">Ansvarig</option>
-              {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+              {planningUsers.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
             </select>
             <input
               value={taskForm.due_date}
@@ -408,7 +413,7 @@ export default function EventPlanningDashboard() {
               >
                 <option value="all">Alla ansvariga</option>
                 <option value="unassigned">Ej tilldelad</option>
-                {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+                {planningUsers.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
               </select>
             </label>
             <label>
@@ -653,7 +658,7 @@ export default function EventPlanningDashboard() {
                     className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
                   >
                     <option value="">Ansvarig</option>
-                    {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+                    {planningUsers.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
                   </select>
                   <select
                     value={selectedTask.priority}
