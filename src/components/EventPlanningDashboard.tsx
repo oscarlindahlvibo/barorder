@@ -34,6 +34,22 @@ const DEFAULT_ITEM_FORM = {
   note: '',
 };
 
+const TASKS_PER_COLUMN = 6;
+
+type TaskSortMode = 'due_priority' | 'priority_due' | 'newest';
+
+const TASK_SORT_LABELS: Record<TaskSortMode, string> = {
+  due_priority: 'Förfallodag + prioritet',
+  priority_due: 'Prioritet + förfallodag',
+  newest: 'Nyast först',
+};
+
+const PRIORITY_WEIGHT: Record<PlanningPriority, number> = {
+  high: 0,
+  normal: 1,
+  low: 2,
+};
+
 function formatDate(date: string | null) {
   if (!date) return 'Ingen deadline';
   return new Date(date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
@@ -68,6 +84,26 @@ function checklistProgress(task: PlanningTask) {
   return `${done}/${task.checklist.length}`;
 }
 
+function dueTime(task: PlanningTask) {
+  return task.due_date ? new Date(task.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function createdTime(task: PlanningTask) {
+  return new Date(task.created_at || 0).getTime();
+}
+
+function sortTasks(tasks: PlanningTask[], mode: TaskSortMode) {
+  return [...tasks].sort((a, b) => {
+    const dueDelta = dueTime(a) - dueTime(b);
+    const priorityDelta = PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+    const newestDelta = createdTime(b) - createdTime(a);
+
+    if (mode === 'newest') return newestDelta || dueDelta || priorityDelta;
+    if (mode === 'priority_due') return priorityDelta || dueDelta || newestDelta;
+    return dueDelta || priorityDelta || newestDelta;
+  });
+}
+
 export default function EventPlanningDashboard() {
   const { currentUser, logout } = useApp();
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -81,6 +117,14 @@ export default function EventPlanningDashboard() {
   const [showArchivedItems, setShowArchivedItems] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState('all');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [taskSortMode, setTaskSortMode] = useState<TaskSortMode>('due_priority');
+  const [expandedColumns, setExpandedColumns] = useState<Record<PlanningTaskStatus, boolean>>({
+    todo: false,
+    in_progress: false,
+    done: false,
+    external: false,
+  });
   const [newChecklistText, setNewChecklistText] = useState('');
   const [newTagText, setNewTagText] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
@@ -240,7 +284,11 @@ export default function EventPlanningDashboard() {
   const allTags = Array.from(new Set(tasks.flatMap(task => task.tags))).sort((a, b) => a.localeCompare(b, 'sv'));
   const visibleTasks = tasks
     .filter(task => task.archived === showArchivedTasks)
-    .filter(task => tagFilter === 'all' || task.tags.includes(tagFilter));
+    .filter(task => tagFilter === 'all' || task.tags.includes(tagFilter))
+    .filter(task => (
+      assigneeFilter === 'all' ||
+      (assigneeFilter === 'unassigned' ? !task.assignee_id : task.assignee_id === assigneeFilter)
+    ));
   const visibleItems = items.filter(item => item.archived === showArchivedItems);
   const selectedTask = selectedTaskId ? tasks.find(task => task.id === selectedTaskId) || null : null;
   const itemsByStore = useMemo(() => (
@@ -339,7 +387,7 @@ export default function EventPlanningDashboard() {
             rows={2}
             className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 resize-none"
           />
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <label className="sm:w-72">
               <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Filtrera på tagg</span>
               <select
@@ -351,7 +399,31 @@ export default function EventPlanningDashboard() {
                 {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
               </select>
             </label>
-            <p className="text-sm text-gray-500 sm:pt-6">
+            <label>
+              <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Ansvarig</span>
+              <select
+                value={assigneeFilter}
+                onChange={e => setAssigneeFilter(e.target.value)}
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+              >
+                <option value="all">Alla ansvariga</option>
+                <option value="unassigned">Ej tilldelad</option>
+                {users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Sortera kort</span>
+              <select
+                value={taskSortMode}
+                onChange={e => setTaskSortMode(e.target.value as TaskSortMode)}
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+              >
+                {Object.entries(TASK_SORT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <p className="text-sm text-gray-500 sm:col-span-3">
               Visar {visibleTasks.length} kort.
             </p>
           </div>
@@ -359,7 +431,10 @@ export default function EventPlanningDashboard() {
 
         <section className="grid grid-cols-1 xl:grid-cols-4 gap-3">
           {TASK_STATUSES.map(status => {
-            const columnTasks = visibleTasks.filter(task => task.status === status.id);
+            const columnTasks = sortTasks(visibleTasks.filter(task => task.status === status.id), taskSortMode);
+            const isExpanded = expandedColumns[status.id];
+            const shownTasks = isExpanded ? columnTasks : columnTasks.slice(0, TASKS_PER_COLUMN);
+            const hasMoreTasks = columnTasks.length > TASKS_PER_COLUMN;
             return (
               <div key={status.id} className={`rounded-xl border p-3 min-h-40 ${status.className}`}>
                 <div className="flex items-center justify-between mb-3">
@@ -367,7 +442,7 @@ export default function EventPlanningDashboard() {
                   <span className="rounded-full bg-gray-900 border border-gray-800 px-2 py-0.5 text-sm font-bold">{columnTasks.length}</span>
                 </div>
                 <div className="space-y-2">
-                  {columnTasks.map(task => (
+                  {shownTasks.map(task => (
                     <article key={task.id} className="rounded-lg border border-gray-800 bg-gray-900 p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-bold text-white leading-snug">{task.title}</h4>
@@ -419,6 +494,14 @@ export default function EventPlanningDashboard() {
                       </div>
                     </article>
                   ))}
+                  {hasMoreTasks && (
+                    <button
+                      onClick={() => setExpandedColumns(columns => ({ ...columns, [status.id]: !columns[status.id] }))}
+                      className="w-full h-10 rounded-lg border border-gray-800 bg-gray-900 text-sm font-semibold text-gray-300 hover:text-white hover:bg-gray-800"
+                    >
+                      {isExpanded ? 'Visa färre' : `Visa fler (${columnTasks.length - TASKS_PER_COLUMN})`}
+                    </button>
+                  )}
                   {columnTasks.length === 0 && <p className="text-sm text-gray-600 text-center py-6">Inga kort</p>}
                 </div>
               </div>
