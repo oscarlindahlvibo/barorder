@@ -205,23 +205,27 @@ export default function ScheduleDisplay() {
                           return (
                             <div
                               key={entry.id}
-                              className="relative min-h-16 rounded-xl border border-orange-500/30 bg-orange-500/20 px-3 py-2 shadow-lg shadow-black/10"
+                              className="relative min-h-16 overflow-hidden rounded-xl border border-orange-500/30 bg-orange-500/20 px-3 py-2 shadow-lg shadow-black/10"
                               style={{ marginLeft: `${left}%`, width: `${Math.max(width, 8)}%` }}
                             >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-white">{entry.start_time}-{entry.end_time}</span>
-                                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${status.className}`}>{status.label}</span>
+                              <div className="flex min-w-0 flex-wrap items-start gap-1.5">
+                                <span className="min-w-0 max-w-full break-words text-sm font-bold leading-tight text-white [overflow-wrap:anywhere] sm:text-base">
+                                  {entry.start_time}-{entry.end_time}
+                                </span>
+                                <span className={`max-w-full rounded-full border px-2 py-0.5 text-[11px] font-bold leading-tight ${status.className}`}>
+                                  {status.label}
+                                </span>
                               </div>
-                              <p className="mt-1 text-xs text-orange-100">
+                              <p className="mt-1 min-w-0 break-words text-xs leading-tight text-orange-100 [overflow-wrap:anywhere]">
                                 Behov {entry.required_count} · Bokade {entry.assigned_names.length}
                               </p>
-                              <p className="mt-1 text-sm font-medium text-white/90 line-clamp-2">
+                              <p className="mt-1 min-w-0 break-words text-sm font-medium leading-tight text-white/90 line-clamp-2 [overflow-wrap:anywhere]">
                                 {entry.assigned_names.length ? entry.assigned_names.join(', ') : 'Inga bokade'}
                               </p>
                               {outsideNames.length > 0 && (
-                                <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-200">
-                                  <AlertTriangle className="h-3.5 w-3.5" />
-                                  Utanför tid: {outsideNames.join(', ')}
+                                <p className="mt-1 flex min-w-0 items-start gap-1 text-xs font-semibold leading-tight text-amber-200">
+                                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">Utanför tid: {outsideNames.join(', ')}</span>
                                 </p>
                               )}
                             </div>
