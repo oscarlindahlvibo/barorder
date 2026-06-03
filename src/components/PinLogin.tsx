@@ -211,9 +211,6 @@ export default function PinLogin() {
           Logga in
         </button>
 
-        <p className="text-center text-gray-600 text-xs mt-7">
-          Första gången fungerar gamla PIN-koden som lösenord. Exempel: admin / 0000, bar / 1234, lager / 6789.
-        </p>
       </form>
     </div>
   );
