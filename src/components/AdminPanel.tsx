@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare } from 'lucide-react';
-import { supabase, AppUser, Location, Product, CATEGORIES } from '../lib/supabase';
+import { supabase, AppUser, Location, Product, CATEGORIES, ALL_USER_ROLES, ROLE_LABELS, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import ChatPanel from './ChatPanel';
+import { getUserRoles, hashPassword } from '../lib/auth';
 
 type AdminTab = 'stats' | 'chat' | 'users' | 'locations' | 'products';
 
@@ -187,7 +188,12 @@ function StatsTab() {
 function UsersTab() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', pin: '', role: 'barpersonal' as AppUser['role'] });
+  const [form, setForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    roles: ['barpersonal'] as UserRole[],
+  });
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -199,17 +205,28 @@ function UsersTab() {
   useEffect(() => { load(); }, []);
 
   async function save() {
-    if (!form.name || !form.pin) return;
+    if (!form.name || !form.username || (!editing && !form.password) || form.roles.length === 0) return;
     setSaving(true);
+    const primaryRole = form.roles[0];
+    const passwordPatch = form.password
+      ? { password_hash: await hashPassword(form.password), pin: form.password }
+      : {};
+    const values = {
+      name: form.name,
+      username: form.username.trim().toLowerCase(),
+      role: primaryRole,
+      roles: form.roles,
+      ...passwordPatch,
+    };
     if (editing) {
-      await supabase.from('users').update({ name: form.name, pin: form.pin, role: form.role }).eq('id', editing);
+      await supabase.from('users').update(values).eq('id', editing);
     } else {
-      await supabase.from('users').insert({ name: form.name, pin: form.pin, role: form.role });
+      await supabase.from('users').insert(values);
     }
     setSaving(false);
     setEditing(null);
     setAdding(false);
-    setForm({ name: '', pin: '', role: 'barpersonal' });
+    setForm({ name: '', username: '', password: '', roles: ['barpersonal'] });
     load();
   }
 
@@ -228,18 +245,23 @@ function UsersTab() {
   function startEdit(user: AppUser) {
     setEditing(user.id);
     setAdding(false);
-    setForm({ name: user.name, pin: user.pin, role: user.role });
+    setForm({
+      name: user.name,
+      username: user.username || '',
+      password: '',
+      roles: getUserRoles(user),
+    });
   }
 
-  const ROLE_LABELS: Record<string, string> = {
-    barpersonal: 'Barpersonal',
-    lager: 'Lager',
-    admin: 'Admin',
-    personal: 'Personalansvarig',
-    serveringsansvarig: 'Serveringsansvarig',
-    kitchen: 'Kök',
-    kitchen_display: 'Köksskärm gäster',
-  };
+  function toggleRole(role: UserRole) {
+    setForm(current => {
+      const hasRole = current.roles.includes(role);
+      const roles = hasRole
+        ? current.roles.filter(item => item !== role)
+        : [...current.roles, role];
+      return { ...current, roles: roles.length > 0 ? roles : [role] };
+    });
+  }
 
   const showForm = adding || editing !== null;
 
@@ -255,26 +277,44 @@ function UsersTab() {
             className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
           />
           <input
-            value={form.pin}
-            onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
-            placeholder="PIN-kod (4 siffror)"
-            maxLength={4}
-            inputMode="numeric"
+            value={form.username}
+            onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            placeholder="Användarnamn"
+            autoCapitalize="none"
+            spellCheck={false}
             className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
           />
-          <select
-            value={form.role}
-            onChange={e => setForm(f => ({ ...f, role: e.target.value as AppUser['role'] }))}
+          <input
+            value={form.password}
+            onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+            placeholder={editing ? 'Nytt lösenord (lämna tomt för att behålla)' : 'Lösenord'}
+            type="password"
+            autoComplete="new-password"
             className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
-          >
-            <option value="barpersonal">Barpersonal</option>
-            <option value="lager">Lager</option>
-            <option value="admin">Admin</option>
-            <option value="personal">Personalansvarig</option>
-            <option value="serveringsansvarig">Serveringsansvarig</option>
-            <option value="kitchen">Kök</option>
-            <option value="kitchen_display">Köksskärm gäster</option>
-          </select>
+          />
+          <div className="space-y-2">
+            <p className="text-gray-300 text-sm font-medium">Behörigheter</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ALL_USER_ROLES.map(role => (
+                <label
+                  key={role}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                    form.roles.includes(role)
+                      ? 'bg-orange-500/15 border-orange-500/50 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-400'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.roles.includes(role)}
+                    onChange={() => toggleRole(role)}
+                    className="accent-orange-500"
+                  />
+                  <span className="text-sm font-medium">{ROLE_LABELS[role]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={save}
@@ -285,7 +325,7 @@ function UsersTab() {
               Spara
             </button>
             <button
-              onClick={() => { setEditing(null); setAdding(false); setForm({ name: '', pin: '', role: 'barpersonal' }); }}
+              onClick={() => { setEditing(null); setAdding(false); setForm({ name: '', username: '', password: '', roles: ['barpersonal'] }); }}
               className="flex-1 h-11 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 font-semibold flex items-center justify-center gap-2"
             >
               <X className="w-4 h-4" />
@@ -307,7 +347,9 @@ function UsersTab() {
         <div key={user.id} className={`bg-gray-900 border rounded-xl p-4 flex items-center gap-3 ${user.active ? 'border-gray-800' : 'border-gray-800 opacity-50'}`}>
           <div className="flex-1 min-w-0">
             <p className="text-white font-medium">{user.name}</p>
-            <p className="text-gray-500 text-sm">PIN: {user.pin} · {ROLE_LABELS[user.role]}</p>
+            <p className="text-gray-500 text-sm">
+              {user.username || 'Saknar användarnamn'} · {getUserRoles(user).map(role => ROLE_LABELS[role]).join(', ')}
+            </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
             <button onClick={() => startEdit(user)} aria-label={`Redigera ${user.name}`} title="Redigera" className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">

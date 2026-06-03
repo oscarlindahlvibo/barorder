@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, Loader2, MessageSquare, Send } from 'lucide-react';
+import { ChevronLeft, Loader2, MessageSquare, Send, Trash2 } from 'lucide-react';
 import { AdminChatMessage, AppUser, supabase, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import { markChatRead } from '../lib/chatUnread';
@@ -43,6 +43,7 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
   const [message, setMessage] = useState('');
   const [targetRole, setTargetRole] = useState<TargetRole>('all');
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -90,6 +91,21 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
     setSending(false);
   }
 
+  async function clearAllMessages() {
+    if (currentUser?.role !== 'admin' || clearing) return;
+    if (!window.confirm('Rensa hela chatten för alla medarbetare? Detta går inte att ångra.')) return;
+
+    setClearing(true);
+    await supabase
+      .from('admin_chat_messages')
+      .delete()
+      .not('id', 'is', null);
+    setMessages([]);
+    markChatRead(currentUser);
+    await load();
+    setClearing(false);
+  }
+
   function formatTime(dateStr: string) {
     return new Date(dateStr).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
   }
@@ -97,6 +113,17 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
   const chatContent = (
     <>
       <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+        {currentUser?.role === 'admin' && messages.length > 0 && (
+          <button
+            onClick={clearAllMessages}
+            disabled={clearing}
+            className="w-full h-11 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Rensa hela chatten
+          </button>
+        )}
+
         {messages.length === 0 ? (
           <div className="text-center py-16">
             <MessageSquare className="w-12 h-12 text-gray-700 mx-auto mb-3" />

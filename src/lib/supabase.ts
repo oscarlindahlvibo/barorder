@@ -18,10 +18,33 @@ export interface AppUser {
   id: string;
   name: string;
   pin: string;
+  username?: string | null;
+  password_hash?: string | null;
   role: UserRole;
+  roles?: UserRole[] | null;
   active: boolean;
   created_at: string;
 }
+
+export const ALL_USER_ROLES: UserRole[] = [
+  'barpersonal',
+  'lager',
+  'admin',
+  'personal',
+  'serveringsansvarig',
+  'kitchen',
+  'kitchen_display',
+];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  barpersonal: 'Bar',
+  lager: 'Plock/Lager',
+  admin: 'Admin',
+  personal: 'Tillkalla personal',
+  serveringsansvarig: 'Serveringsansvarig',
+  kitchen: 'Kök',
+  kitchen_display: 'Köksskärm gäster',
+};
 
 export interface Location {
   id: string;

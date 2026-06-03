@@ -50,13 +50,13 @@ const now = new Date().toISOString();
 
 const seedDb: DemoDb = {
   users: [
-    { id: 'user-admin', name: 'Admin', pin: '0000', role: 'admin', active: true, created_at: now },
-    { id: 'user-bar', name: 'Barpersonal', pin: '1234', role: 'barpersonal', active: true, created_at: now },
-    { id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now },
-    { id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now },
-    { id: 'user-lager', name: 'Lager', pin: '6789', role: 'lager', active: true, created_at: now },
-    { id: 'user-kitchen', name: 'Kök', pin: '2468', role: 'kitchen', active: true, created_at: now },
-    { id: 'user-kitchen-display', name: 'Köksskärm gäster', pin: '1357', role: 'kitchen_display', active: true, created_at: now },
+    { id: 'user-admin', name: 'Admin', username: 'admin', password_hash: null, pin: '0000', role: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display'], active: true, created_at: now },
+    { id: 'user-bar', name: 'Barpersonal', username: 'bar', password_hash: null, pin: '1234', role: 'barpersonal', roles: ['barpersonal', 'lager'], active: true, created_at: now },
+    { id: 'user-personal', name: 'Personalansvarig', username: 'personal', password_hash: null, pin: '5555', role: 'personal', roles: ['personal'], active: true, created_at: now },
+    { id: 'user-serving', name: 'Serveringsansvarig', username: 'servering', password_hash: null, pin: '4444', role: 'serveringsansvarig', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'], active: true, created_at: now },
+    { id: 'user-lager', name: 'Lager', username: 'lager', password_hash: null, pin: '6789', role: 'lager', roles: ['lager'], active: true, created_at: now },
+    { id: 'user-kitchen', name: 'Kök', username: 'kok', password_hash: null, pin: '2468', role: 'kitchen', roles: ['kitchen'], active: true, created_at: now },
+    { id: 'user-kitchen-display', name: 'Köksskärm gäster', username: 'gastskarm', password_hash: null, pin: '1357', role: 'kitchen_display', roles: ['kitchen_display'], active: true, created_at: now },
   ],
   locations: [
     { id: 'loc-main', name: 'Stora baren', active: true, sort_order: 1, created_at: now },
@@ -121,20 +121,42 @@ function loadDb(): DemoDb {
     return clone(seedDb);
   }
   const db = JSON.parse(raw) as DemoDb;
+  const defaults: Record<string, Partial<AppUser>> = {
+    '0000': { username: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display'] },
+    '1234': { username: 'bar', roles: ['barpersonal', 'lager'] },
+    '5555': { username: 'personal', roles: ['personal'] },
+    '4444': { username: 'servering', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'] },
+    '6789': { username: 'lager', roles: ['lager'] },
+    '2468': { username: 'kok', roles: ['kitchen'] },
+    '1357': { username: 'gastskarm', roles: ['kitchen_display'] },
+  };
+  let changedUsers = false;
+  db.users.forEach(user => {
+    const defaultsForPin = defaults[user.pin];
+    if (!user.username && defaultsForPin?.username) {
+      user.username = defaultsForPin.username;
+      changedUsers = true;
+    }
+    if (!user.roles || user.roles.length === 0) {
+      user.roles = (defaultsForPin?.roles as AppUser['roles']) ?? [user.role];
+      changedUsers = true;
+    }
+  });
+  if (changedUsers) saveDb(db);
   if (!db.users.some(user => user.pin === '5555')) {
-    db.users.push({ id: 'user-personal', name: 'Personalansvarig', pin: '5555', role: 'personal', active: true, created_at: now });
+    db.users.push({ id: 'user-personal', name: 'Personalansvarig', username: 'personal', password_hash: null, pin: '5555', role: 'personal', roles: ['personal'], active: true, created_at: now });
     saveDb(db);
   }
   if (!db.users.some(user => user.pin === '4444')) {
-    db.users.push({ id: 'user-serving', name: 'Serveringsansvarig', pin: '4444', role: 'serveringsansvarig', active: true, created_at: now });
+    db.users.push({ id: 'user-serving', name: 'Serveringsansvarig', username: 'servering', password_hash: null, pin: '4444', role: 'serveringsansvarig', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'], active: true, created_at: now });
     saveDb(db);
   }
   if (!db.users.some(user => user.pin === '2468')) {
-    db.users.push({ id: 'user-kitchen', name: 'Kök', pin: '2468', role: 'kitchen', active: true, created_at: now });
+    db.users.push({ id: 'user-kitchen', name: 'Kök', username: 'kok', password_hash: null, pin: '2468', role: 'kitchen', roles: ['kitchen'], active: true, created_at: now });
     saveDb(db);
   }
   if (!db.users.some(user => user.pin === '1357')) {
-    db.users.push({ id: 'user-kitchen-display', name: 'Köksskärm gäster', pin: '1357', role: 'kitchen_display', active: true, created_at: now });
+    db.users.push({ id: 'user-kitchen-display', name: 'Köksskärm gäster', username: 'gastskarm', password_hash: null, pin: '1357', role: 'kitchen_display', roles: ['kitchen_display'], active: true, created_at: now });
     saveDb(db);
   }
   if (!db.push_subscriptions) {
