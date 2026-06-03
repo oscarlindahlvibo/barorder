@@ -10,6 +10,7 @@ import KitchenDashboard from './components/KitchenDashboard';
 import KitchenDisplay from './components/KitchenDisplay';
 import ScheduleDisplay from './components/ScheduleDisplay';
 import ExhibitionDisplay from './components/ExhibitionDisplay';
+import EventPlanningDashboard from './components/EventPlanningDashboard';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -44,6 +45,7 @@ function AppContent() {
         {view === 'kitchen-display' && <KitchenDisplay />}
         {view === 'schedule-display' && <ScheduleDisplay />}
         {view === 'exhibition-display' && <ExhibitionDisplay />}
+        {view === 'event-planning' && <EventPlanningDashboard />}
         {view === 'chat' && (
           <div className={showBarNav ? 'pb-safe-nav' : ''}>
             <ChatPanel />

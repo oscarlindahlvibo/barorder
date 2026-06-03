@@ -17,6 +17,7 @@ const TARGETS: { id: TargetRole; label: string }[] = [
   { id: 'kitchen', label: 'Kök' },
   { id: 'schedule_display', label: 'Schemaskärm' },
   { id: 'exhibition_display', label: 'Utställningsservice TV' },
+  { id: 'event_planning', label: 'Evenemangsplanering' },
 ];
 
 const ROLE_LABELS: Record<TargetRole, string> = {
@@ -30,6 +31,7 @@ const ROLE_LABELS: Record<TargetRole, string> = {
   kitchen_display: 'Köksskärm gäster',
   schedule_display: 'Schemaskärm',
   exhibition_display: 'Utställningsservice TV',
+  event_planning: 'Evenemangsplanering',
 };
 
 function canReadMessage(message: AdminChatMessage, user: AppUser | null) {

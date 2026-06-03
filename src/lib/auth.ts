@@ -20,7 +20,7 @@ export function getUserRoles(user: AppUser): UserRole[] {
   const roles = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : [user.role];
   const uniqueRoles = Array.from(new Set(roles));
   return uniqueRoles.includes('admin')
-    ? ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display']
+    ? ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display', 'event_planning']
     : uniqueRoles;
 }
 
@@ -37,6 +37,7 @@ export function viewForRole(role: UserRole) {
   if (role === 'kitchen_display') return 'kitchen-display';
   if (role === 'schedule_display') return 'schedule-display';
   if (role === 'exhibition_display') return 'exhibition-display';
+  if (role === 'event_planning') return 'event-planning';
   if (role === 'serveringsansvarig') return 'serving-dashboard';
   if (role === 'personal') return 'staff-dashboard';
   if (role === 'lager' || role === 'admin') return 'dashboard';

@@ -10,6 +10,7 @@
 
   html {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color-scheme: dark;
   }
 
   body {
@@ -23,6 +24,149 @@
 }
 
 @layer utilities {
+  .theme-dark {
+    color-scheme: dark;
+  }
+
+  .theme-light {
+    color-scheme: light;
+  }
+
+  .theme-light body {
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+
+  .theme-light .bg-gray-950 {
+    background-color: #f8fafc;
+  }
+
+  .theme-light .bg-gray-950\/95 {
+    background-color: rgb(248 250 252 / 0.95);
+  }
+
+  .theme-light .bg-gray-950\/90 {
+    background-color: rgb(248 250 252 / 0.9);
+  }
+
+  .theme-light .bg-gray-950\/80 {
+    background-color: rgb(248 250 252 / 0.8);
+  }
+
+  .theme-light .bg-gray-950\/70 {
+    background-color: rgb(248 250 252 / 0.7);
+  }
+
+  .theme-light .bg-gray-950\/60,
+  .theme-light .bg-gray-950\/50 {
+    background-color: rgb(248 250 252 / 0.78);
+  }
+
+  .theme-light .bg-gray-900 {
+    background-color: #ffffff;
+  }
+
+  .theme-light .bg-gray-900\/95 {
+    background-color: rgb(255 255 255 / 0.95);
+  }
+
+  .theme-light .bg-gray-900\/90 {
+    background-color: rgb(255 255 255 / 0.9);
+  }
+
+  .theme-light .bg-gray-900\/80 {
+    background-color: rgb(255 255 255 / 0.82);
+  }
+
+  .theme-light .bg-gray-900\/70,
+  .theme-light .bg-gray-900\/60 {
+    background-color: rgb(255 255 255 / 0.75);
+  }
+
+  .theme-light .bg-gray-800 {
+    background-color: #e2e8f0;
+  }
+
+  .theme-light .bg-gray-800\/80,
+  .theme-light .bg-gray-800\/70,
+  .theme-light .bg-gray-800\/60,
+  .theme-light .bg-gray-800\/50 {
+    background-color: rgb(226 232 240 / 0.85);
+  }
+
+  .theme-light .bg-gray-700,
+  .theme-light .bg-gray-700\/70,
+  .theme-light .bg-gray-700\/60,
+  .theme-light .bg-gray-700\/50 {
+    background-color: #cbd5e1;
+  }
+
+  .theme-light .border-gray-900,
+  .theme-light .border-gray-800,
+  .theme-light .border-gray-700,
+  .theme-light .border-white\/10 {
+    border-color: #cbd5e1;
+  }
+
+  .theme-light .text-white,
+  .theme-light .text-white\/90,
+  .theme-light .hover\:text-white:hover {
+    color: #0f172a;
+  }
+
+  .theme-light .text-gray-200 {
+    color: #1e293b;
+  }
+
+  .theme-light .text-gray-300 {
+    color: #334155;
+  }
+
+  .theme-light .text-gray-400 {
+    color: #475569;
+  }
+
+  .theme-light .text-gray-500 {
+    color: #64748b;
+  }
+
+  .theme-light .text-gray-600 {
+    color: #94a3b8;
+  }
+
+  .theme-light .text-gray-700 {
+    color: #cbd5e1;
+  }
+
+  .theme-light .placeholder-gray-600::placeholder,
+  .theme-light .placeholder-gray-500::placeholder,
+  .theme-light .placeholder-gray-400::placeholder {
+    color: #94a3b8;
+  }
+
+  .theme-light .hover\:bg-gray-900:hover {
+    background-color: #ffffff;
+  }
+
+  .theme-light .hover\:bg-gray-800:hover,
+  .theme-light .active\:bg-gray-800:active {
+    background-color: #e2e8f0;
+  }
+
+  .theme-light .hover\:bg-gray-700:hover {
+    background-color: #cbd5e1;
+  }
+
+  .theme-light input,
+  .theme-light select,
+  .theme-light textarea {
+    color: #0f172a;
+  }
+
+  .theme-light img.brightness-0.invert {
+    filter: none;
+  }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

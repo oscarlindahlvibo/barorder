@@ -21,7 +21,8 @@ export type UserRole =
   | 'kitchen'
   | 'kitchen_display'
   | 'schedule_display'
-  | 'exhibition_display';
+  | 'exhibition_display'
+  | 'event_planning';
 
 export interface AppUser {
   id: string;
@@ -45,6 +46,7 @@ export const ALL_USER_ROLES: UserRole[] = [
   'kitchen_display',
   'schedule_display',
   'exhibition_display',
+  'event_planning',
 ];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -57,6 +59,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   kitchen_display: 'Köksskärm gäster',
   schedule_display: 'Schemaskärm',
   exhibition_display: 'Utställningsservice TV',
+  event_planning: 'Evenemangsplanering',
 };
 
 export interface Location {
@@ -175,6 +178,54 @@ export interface SchedulePerson {
   sort_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export type PlanningTaskStatus = 'todo' | 'in_progress' | 'done' | 'external';
+export type PlanningPriority = 'low' | 'normal' | 'high';
+
+export interface PlanningChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface PlanningAttachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export interface PlanningTask {
+  id: string;
+  title: string;
+  description: string | null;
+  status: PlanningTaskStatus;
+  assignee_id: string | null;
+  due_date: string | null;
+  priority: PlanningPriority;
+  tags: string[];
+  checklist: PlanningChecklistItem[];
+  attachments: PlanningAttachment[];
+  archived: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  assignee?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
+}
+
+export interface ShoppingItem {
+  id: string;
+  product_name: string;
+  quantity: string;
+  store: string;
+  assignee_id: string | null;
+  purchased: boolean;
+  archived: boolean;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  assignee?: Pick<AppUser, 'id' | 'name' | 'role'> | null;
 }
 
 export const CATEGORIES = [

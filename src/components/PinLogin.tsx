@@ -3,6 +3,7 @@ import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react';
 import { AppUser, supabase, UserRole } from '../lib/supabase';
 import { getUserRoles, passwordMatches, viewForRole, withSelectedRole } from '../lib/auth';
 import { useApp } from '../lib/store';
+import ThemeSelector from './ThemeSelector';
 
 const BOOTSTRAP_USERS = [
   { name: 'Admin', username: 'admin', pin: '0000', role: 'admin' as UserRole },
@@ -163,6 +164,10 @@ export default function PinLogin() {
           Logga in
         </button>
 
+        <div className="mt-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 mb-2">Tema</p>
+          <ThemeSelector />
+        </div>
       </form>
     </div>
   );

@@ -2,6 +2,7 @@ import { LogOut, Users } from 'lucide-react';
 import { ROLE_LABELS } from '../lib/supabase';
 import { getUserRoles } from '../lib/auth';
 import { useApp } from '../lib/store';
+import ThemeSelector from './ThemeSelector';
 
 export default function RoleSelect() {
   const { currentUser, logout, selectRole } = useApp();
@@ -43,6 +44,11 @@ export default function RoleSelect() {
           <LogOut className="w-5 h-5" />
           Logga ut
         </button>
+
+        <div className="mt-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 mb-2">Tema</p>
+          <ThemeSelector />
+        </div>
       </div>
     </div>
   );
