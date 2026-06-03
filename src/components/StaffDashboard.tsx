@@ -4,6 +4,7 @@ import { supabase, PRIORITY_LABELS, REQUEST_TYPE_LABELS, RequestStatus, RestockR
 import { useApp } from '../lib/store';
 import { enableLockedScreenPush } from '../lib/pushNotifications';
 import { useUnreadChatCount } from '../lib/chatUnread';
+import RoleMenuButton from './RoleMenuButton';
 
 const STAFF_TYPES = ['security_call', 'it_support', 'serving_manager'];
 const STAFF_STATUS_LABELS: Partial<Record<RequestStatus, string>> = {
@@ -274,6 +275,7 @@ export default function StaffDashboard({ embedded = false }: StaffDashboardProps
                 </span>
               )}
             </button>
+            <RoleMenuButton />
             <button
               onClick={logout}
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"

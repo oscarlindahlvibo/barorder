@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock, LogOut, Utensils } from 'lucide-react';
 import { KitchenOrder, supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import RoleMenuButton from './RoleMenuButton';
 
 function formatClock() {
   return new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
@@ -74,6 +75,7 @@ export default function KitchenDisplay() {
             <Clock className="w-6 h-6 text-gray-500" />
             {clock}
           </div>
+          <RoleMenuButton />
           <button
             onClick={logout}
             className="h-12 w-12 rounded-lg text-gray-600 hover:text-white hover:bg-gray-800 flex items-center justify-center"

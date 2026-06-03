@@ -20,7 +20,8 @@ export type UserRole =
   | 'serveringsansvarig'
   | 'kitchen'
   | 'kitchen_display'
-  | 'schedule_display';
+  | 'schedule_display'
+  | 'exhibition_display';
 
 export interface AppUser {
   id: string;
@@ -43,6 +44,7 @@ export const ALL_USER_ROLES: UserRole[] = [
   'kitchen',
   'kitchen_display',
   'schedule_display',
+  'exhibition_display',
 ];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -54,6 +56,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   kitchen: 'Kök',
   kitchen_display: 'Köksskärm gäster',
   schedule_display: 'Schemaskärm',
+  exhibition_display: 'Utställningsservice TV',
 };
 
 export interface Location {

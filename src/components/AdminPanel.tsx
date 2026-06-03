@@ -4,6 +4,7 @@ import { supabase, AppUser, Location, Product, CATEGORIES, ALL_USER_ROLES, ROLE_
 import { useApp } from '../lib/store';
 import ChatPanel from './ChatPanel';
 import { getUserRoles, hashPassword } from '../lib/auth';
+import RoleMenuButton from './RoleMenuButton';
 
 type AdminTab = 'stats' | 'chat' | 'users' | 'schedule' | 'locations' | 'products';
 
@@ -21,6 +22,9 @@ export default function AdminPanel() {
           <ChevronLeft className="w-6 h-6" />
         </button>
         <h1 className="text-white font-bold text-lg">Admin</h1>
+        <div className="ml-auto">
+          <RoleMenuButton />
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -389,6 +393,56 @@ const DEFAULT_SCHEDULE_PERSON_FORM = {
   note: '',
 };
 
+type SchedulePersonImportRow = {
+  name: string;
+  friday_start: string | null;
+  friday_end: string | null;
+  saturday_start: string | null;
+  saturday_end: string | null;
+  note: string | null;
+};
+
+function normalizeImportTime(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '-' || trimmed === '—') return null;
+  const normalized = trimmed.replace('.', ':').replace(',', ':');
+  const match = normalized.match(/^(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return normalized;
+  const hours = match[1].padStart(2, '0');
+  const minutes = match[2] || '00';
+  return `${hours}:${minutes}`;
+}
+
+function splitImportLine(line: string) {
+  if (line.includes('\t')) return line.split('\t');
+  if (line.includes(';')) return line.split(';');
+  return line.split(',');
+}
+
+function parseSchedulePeopleImport(text: string): SchedulePersonImportRow[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return [];
+
+  const firstCells = splitImportLine(lines[0]).map(cell => cell.trim().toLowerCase());
+  const hasHeader = firstCells.some(cell => cell.includes('namn')) || firstCells.some(cell => cell.includes('fredag'));
+  const rows = hasHeader ? lines.slice(1) : lines;
+
+  return rows
+    .map(line => splitImportLine(line).map(cell => cell.trim()))
+    .map(cells => ({
+      name: cells[0] || '',
+      friday_start: normalizeImportTime(cells[1] || ''),
+      friday_end: normalizeImportTime(cells[2] || ''),
+      saturday_start: normalizeImportTime(cells[3] || ''),
+      saturday_end: normalizeImportTime(cells[4] || ''),
+      note: cells.slice(5).join(' ').trim() || null,
+    }))
+    .filter(row => row.name);
+}
+
 function scheduleTimeToMinutes(time: string) {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
@@ -445,6 +499,9 @@ function ScheduleTab() {
   const [editingPerson, setEditingPerson] = useState<string | null>(null);
   const [positionName, setPositionName] = useState('');
   const [personForm, setPersonForm] = useState(DEFAULT_SCHEDULE_PERSON_FORM);
+  const [importText, setImportText] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importingPeople, setImportingPeople] = useState(false);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPerson, setSavingPerson] = useState(false);
@@ -474,16 +531,46 @@ function ScheduleTab() {
     setPersonForm(DEFAULT_SCHEDULE_PERSON_FORM);
   }
 
-  function startEdit(entry: ScheduleEntry) {
+  async function startEdit(entry: ScheduleEntry) {
     setEditing(entry.id);
     setAdding(false);
+    const createdPeople: SchedulePerson[] = [];
+    for (const name of entry.assigned_names) {
+      const exists = [...people, ...createdPeople].some(person => person.name.trim().toLowerCase() === name.trim().toLowerCase());
+      if (!exists) {
+        const { data } = await supabase
+          .from('schedule_people')
+          .insert({
+            name: name.trim(),
+            friday_start: null,
+            friday_end: null,
+            saturday_start: null,
+            saturday_end: null,
+            preferred_day: entry.day,
+            available_start: null,
+            available_end: null,
+            note: 'Skapad automatiskt från befintligt pass',
+            sort_order: people.length + createdPeople.length + 1,
+          })
+          .select()
+          .single();
+        if (data) createdPeople.push(data);
+      }
+    }
+    const availablePeople = [...people, ...createdPeople];
+    if (createdPeople.length > 0) setPeople(availablePeople);
+    const assignedIds = new Set(entry.assigned_staff_ids || []);
+    entry.assigned_names.forEach(name => {
+      const matchingPerson = availablePeople.find(person => person.name.trim().toLowerCase() === name.trim().toLowerCase());
+      if (matchingPerson) assignedIds.add(matchingPerson.id);
+    });
     setForm({
       day: entry.day,
       position_id: entry.position_id || positions.find(position => position.name === entry.position)?.id || '',
       start_time: entry.start_time,
       end_time: entry.end_time,
       required_count: entry.required_count,
-      assigned_staff_ids: entry.assigned_staff_ids || [],
+      assigned_staff_ids: Array.from(assignedIds),
       note: entry.note || '',
     });
   }
@@ -547,6 +634,47 @@ function ScheduleTab() {
     setSavingPerson(false);
     resetPersonForm();
     load();
+  }
+
+  async function importPeople() {
+    const rows = parseSchedulePeopleImport(importText);
+    if (rows.length === 0) {
+      window.alert('Hittade inga personer att importera.');
+      return;
+    }
+    setImportingPeople(true);
+    let created = 0;
+    let updated = 0;
+
+    for (const row of rows) {
+      const existing = people.find(person => person.name.trim().toLowerCase() === row.name.trim().toLowerCase());
+      const values = {
+        name: row.name.trim(),
+        friday_start: row.friday_start,
+        friday_end: row.friday_end,
+        saturday_start: row.saturday_start,
+        saturday_end: row.saturday_end,
+        preferred_day: row.friday_start && row.friday_end ? 'Fredag' : row.saturday_start && row.saturday_end ? 'Lördag' : 'Fredag',
+        available_start: row.friday_start || row.saturday_start,
+        available_end: row.friday_end || row.saturday_end,
+        note: row.note,
+        sort_order: existing?.sort_order ?? people.length + created + 1,
+      };
+
+      if (existing) {
+        await supabase.from('schedule_people').update(values).eq('id', existing.id);
+        updated++;
+      } else {
+        await supabase.from('schedule_people').insert(values);
+        created++;
+      }
+    }
+
+    setImportingPeople(false);
+    setImportText('');
+    setShowImport(false);
+    await load();
+    window.alert(`Import klar. ${created} nya, ${updated} uppdaterade.`);
   }
 
   async function togglePerson(person: SchedulePerson) {
@@ -710,7 +838,42 @@ function ScheduleTab() {
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-          <h3 className="text-white font-semibold">{editingPerson ? 'Redigera schemapersonal' : 'Lägg till schemapersonal'}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-white font-semibold flex-1">{editingPerson ? 'Redigera schemapersonal' : 'Lägg till schemapersonal'}</h3>
+            <button
+              onClick={() => setShowImport(value => !value)}
+              className="h-9 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-semibold"
+            >
+              Klistra in från Excel
+            </button>
+          </div>
+          {showImport && (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 space-y-2">
+              <textarea
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                rows={6}
+                placeholder={'Namn\tFredag start\tFredag slut\tLördag start\tLördag slut\tAnteckning\nAnna\t18:00\t02:00\t\t\tVill helst stå i bar\nErik\t\t\t14:00\t20:00\t'}
+                className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 resize-y font-mono text-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={importPeople}
+                  disabled={importingPeople || !importText.trim()}
+                  className="flex-1 h-10 bg-orange-500 hover:bg-orange-400 rounded-xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {importingPeople ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Importera personal
+                </button>
+                <button
+                  onClick={() => { setShowImport(false); setImportText(''); }}
+                  className="h-10 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 font-semibold"
+                >
+                  Avbryt
+                </button>
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             <input
               value={personForm.name}
@@ -802,42 +965,57 @@ function ScheduleTab() {
         <div className="bg-gray-900 border border-orange-500/40 rounded-xl p-4 space-y-3">
           <h3 className="text-white font-semibold">{editing ? 'Redigera schemarad' : 'Lägg till schemarad'}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              value={form.day}
-              onChange={e => setForm(f => ({ ...f, day: e.target.value }))}
-              placeholder="Dag, t.ex. Fredag"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
-            />
-            <select
-              value={form.position_id}
-              onChange={e => setForm(f => ({ ...f, position_id: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
-            >
-              <option value="">Välj arbetsställe</option>
-              {positions.filter(position => position.active).map(position => (
-                <option key={position.id} value={position.id}>{position.name}</option>
-              ))}
-            </select>
-            <input
-              value={form.start_time}
-              onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
-              type="time"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
-            />
-            <input
-              value={form.end_time}
-              onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
-              type="time"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
-            />
-            <input
-              value={form.required_count}
-              onChange={e => setForm(f => ({ ...f, required_count: Number(e.target.value) }))}
-              type="number"
-              min={0}
-              placeholder="Behov"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
-            />
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dag</span>
+              <input
+                value={form.day}
+                onChange={e => setForm(f => ({ ...f, day: e.target.value }))}
+                placeholder="Dag, t.ex. Fredag"
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Arbetsställe</span>
+              <select
+                value={form.position_id}
+                onChange={e => setForm(f => ({ ...f, position_id: e.target.value }))}
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
+              >
+                <option value="">Välj arbetsställe</option>
+                {positions.filter(position => position.active).map(position => (
+                  <option key={position.id} value={position.id}>{position.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Starttid</span>
+              <input
+                value={form.start_time}
+                onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
+                type="time"
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sluttid</span>
+              <input
+                value={form.end_time}
+                onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
+                type="time"
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Behov, antal personer</span>
+              <input
+                value={form.required_count}
+                onChange={e => setForm(f => ({ ...f, required_count: Number(e.target.value) }))}
+                type="number"
+                min={0}
+                placeholder="Antal personer som behövs"
+                className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
+              />
+            </label>
           </div>
           <div className="space-y-2">
             <p className="text-gray-300 text-sm font-medium">Välj personal</p>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, LogOut, RefreshCw } from 'lucide-react';
 import { ScheduleEntry, SchedulePerson, supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import RoleMenuButton from './RoleMenuButton';
 
 function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(':').map(Number);
@@ -125,6 +126,7 @@ export default function ScheduleDisplay() {
           >
             <RefreshCw className="h-5 w-5" />
           </button>
+          <RoleMenuButton />
           <button
             onClick={logout}
             className="h-11 w-11 rounded-xl bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white flex items-center justify-center"

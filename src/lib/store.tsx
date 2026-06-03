@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { AppUser, Location } from './supabase';
+import { AppUser, Location, UserRole } from './supabase';
+import { viewForRole, withSelectedRole } from './auth';
 
-type View = 'login' | 'location-select' | 'request' | 'dashboard' | 'staff-dashboard' | 'serving-dashboard' | 'kitchen-dashboard' | 'kitchen-display' | 'schedule-display' | 'history' | 'admin' | 'chat';
+type View = 'login' | 'role-select' | 'location-select' | 'request' | 'dashboard' | 'staff-dashboard' | 'serving-dashboard' | 'kitchen-dashboard' | 'kitchen-display' | 'schedule-display' | 'exhibition-display' | 'history' | 'admin' | 'chat';
 
 interface PersistedState {
   user: AppUser | null;
@@ -15,6 +16,7 @@ interface AppState {
   view: View;
   setCurrentUser: (user: AppUser | null, nextView?: View) => void;
   setCurrentLocation: (location: Location | null, nextView?: View) => void;
+  selectRole: (role: UserRole) => void;
   setView: (view: View) => void;
   logout: () => void;
 }
@@ -70,6 +72,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const selectRole = useCallback((role: UserRole) => {
+    setState(prev => {
+      if (!prev.user) return prev;
+      const user = withSelectedRole(prev.user, role);
+      const next = {
+        user,
+        location: role === 'barpersonal' ? null : prev.location,
+        view: viewForRole(role) as View,
+      };
+      writeStorage(next);
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(() => {
     const next = { user: null, location: null, view: 'login' as View };
     writeStorage(next);
@@ -94,6 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       view: state.view,
       setCurrentUser,
       setCurrentLocation,
+      selectRole,
       setView,
       logout,
     }}>

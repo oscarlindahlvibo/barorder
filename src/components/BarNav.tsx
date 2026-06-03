@@ -1,6 +1,7 @@
 import { ShoppingCart, MessageSquare, History, LogOut } from 'lucide-react';
 import { useApp } from '../lib/store';
 import { useUnreadChatCount } from '../lib/chatUnread';
+import RoleMenuButton from './RoleMenuButton';
 
 export default function BarNav() {
   const { currentUser, view, setView, logout } = useApp();
@@ -49,6 +50,7 @@ export default function BarNav() {
         <LogOut className="w-6 h-6" />
         <span className="text-xs font-medium">Logga ut</span>
       </button>
+      <RoleMenuButton variant="bottom" />
     </div>
   );
 }

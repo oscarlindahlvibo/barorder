@@ -1,5 +1,6 @@
 import { AppProvider, useApp } from './lib/store';
 import PinLogin from './components/PinLogin';
+import RoleSelect from './components/RoleSelect';
 import LocationSelect from './components/LocationSelect';
 import RequestForm from './components/RequestForm';
 import Dashboard from './components/Dashboard';
@@ -8,6 +9,7 @@ import ServingManagerDashboard from './components/ServingManagerDashboard';
 import KitchenDashboard from './components/KitchenDashboard';
 import KitchenDisplay from './components/KitchenDisplay';
 import ScheduleDisplay from './components/ScheduleDisplay';
+import ExhibitionDisplay from './components/ExhibitionDisplay';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -28,6 +30,7 @@ function AppContent() {
         <ConnectivityBanner />
         <NativePushBootstrap user={currentUser} />
         {view === 'login' && <PinLogin />}
+        {view === 'role-select' && <RoleSelect />}
         {view === 'location-select' && <LocationSelect />}
         {view === 'request' && (
           <div className={showBarNav ? 'pb-safe-nav' : ''}>
@@ -40,6 +43,7 @@ function AppContent() {
         {view === 'kitchen-dashboard' && <KitchenDashboard />}
         {view === 'kitchen-display' && <KitchenDisplay />}
         {view === 'schedule-display' && <ScheduleDisplay />}
+        {view === 'exhibition-display' && <ExhibitionDisplay />}
         {view === 'chat' && (
           <div className={showBarNav ? 'pb-safe-nav' : ''}>
             <ChatPanel />

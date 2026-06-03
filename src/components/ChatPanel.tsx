@@ -3,6 +3,7 @@ import { ChevronLeft, Loader2, MessageSquare, Send, Trash2 } from 'lucide-react'
 import { AdminChatMessage, AppUser, supabase, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import { markChatRead } from '../lib/chatUnread';
+import RoleMenuButton from './RoleMenuButton';
 
 type TargetRole = UserRole | 'all';
 
@@ -15,6 +16,7 @@ const TARGETS: { id: TargetRole; label: string }[] = [
   { id: 'personal', label: 'Tillkalla personal' },
   { id: 'kitchen', label: 'Kök' },
   { id: 'schedule_display', label: 'Schemaskärm' },
+  { id: 'exhibition_display', label: 'Utställningsservice TV' },
 ];
 
 const ROLE_LABELS: Record<TargetRole, string> = {
@@ -27,6 +29,7 @@ const ROLE_LABELS: Record<TargetRole, string> = {
   kitchen: 'Kök',
   kitchen_display: 'Köksskärm gäster',
   schedule_display: 'Schemaskärm',
+  exhibition_display: 'Utställningsservice TV',
 };
 
 function canReadMessage(message: AdminChatMessage, user: AppUser | null) {
@@ -223,6 +226,9 @@ export default function ChatPanel({ embedded = false }: ChatPanelProps) {
         <div>
           <h1 className="text-white font-bold text-lg">Chatt</h1>
           <p className="text-gray-400 text-xs">{currentUser?.name}</p>
+        </div>
+        <div className="ml-auto">
+          <RoleMenuButton />
         </div>
       </div>
       {chatContent}

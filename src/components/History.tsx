@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, Package, Clock, AlertTriangle } from 'lucide-react';
 import { supabase, RestockRequest, STATUS_LABELS, STATUS_COLORS, REQUEST_TYPE_LABELS, PRIORITY_LABELS } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import RoleMenuButton from './RoleMenuButton';
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -48,6 +49,9 @@ export default function History() {
             {currentUser?.role === 'barpersonal' ? 'Mina beställningar' : 'Alla beställningar'}
           </h1>
           <p className="text-gray-400 text-xs">{requests.length} beställningar</p>
+        </div>
+        <div className="ml-auto">
+          <RoleMenuButton />
         </div>
       </div>
 

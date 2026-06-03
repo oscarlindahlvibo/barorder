@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, Delete, LogOut, RotateCw, Utensils, X } from 'lucide-react';
 import { KitchenOrder, supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import RoleMenuButton from './RoleMenuButton';
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
@@ -98,15 +99,18 @@ export default function KitchenDashboard() {
             <p className="text-sm sm:text-base text-gray-400 leading-snug">Markera ordernummer som klara</p>
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="h-11 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center gap-2 flex-shrink-0"
-          aria-label="Logga ut"
-          title="Logga ut"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Logga ut</span>
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <RoleMenuButton />
+          <button
+            onClick={logout}
+            className="h-11 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center gap-2"
+            aria-label="Logga ut"
+            title="Logga ut"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logga ut</span>
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 grid lg:grid-cols-[420px_1fr] gap-4 p-4 pb-safe-screen overflow-y-auto lg:overflow-hidden">

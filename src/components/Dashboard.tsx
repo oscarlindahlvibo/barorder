@@ -4,6 +4,7 @@ import { supabase, RestockRequest, RequestStatus, STATUS_LABELS, STATUS_COLORS, 
 import { useApp } from '../lib/store';
 import { enableLockedScreenPush } from '../lib/pushNotifications';
 import { useUnreadChatCount } from '../lib/chatUnread';
+import RoleMenuButton from './RoleMenuButton';
 
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -390,6 +391,7 @@ export default function Dashboard({ embedded = false }: DashboardProps) {
             >
               <History className="w-5 h-5" />
             </button>
+            <RoleMenuButton />
             <button
               onClick={logout}
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"

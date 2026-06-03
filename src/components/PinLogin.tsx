@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
-import { Eye, EyeOff, Loader2, Lock, User, Users } from 'lucide-react';
-import { AppUser, ROLE_LABELS, supabase, UserRole } from '../lib/supabase';
+import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react';
+import { AppUser, supabase, UserRole } from '../lib/supabase';
 import { getUserRoles, passwordMatches, viewForRole, withSelectedRole } from '../lib/auth';
 import { useApp } from '../lib/store';
 
@@ -13,14 +13,13 @@ const BOOTSTRAP_USERS = [
   { name: 'Kök', username: 'kok', pin: '2468', role: 'kitchen' as UserRole },
   { name: 'Köksskärm gäster', username: 'gastskarm', pin: '1357', role: 'kitchen_display' as UserRole },
   { name: 'Schemaskärm', username: 'schema', pin: '8642', role: 'schedule_display' as UserRole },
+  { name: 'Utställningsservice TV', username: 'utstallning', pin: '9753', role: 'exhibition_display' as UserRole },
 ];
 
 export default function PinLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [roleChoices, setRoleChoices] = useState<UserRole[] | null>(null);
-  const [authenticatedUser, setAuthenticatedUser] = useState<AppUser | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setCurrentUser } = useApp();
@@ -91,57 +90,7 @@ export default function PinLogin() {
       return;
     }
 
-    setAuthenticatedUser(user);
-    setRoleChoices(roles);
-  }
-
-  function chooseRole(role: UserRole) {
-    if (!authenticatedUser) return;
-    const selectedUser = withSelectedRole(authenticatedUser, role);
-    setCurrentUser(selectedUser, viewForRole(role));
-  }
-
-  function resetLogin() {
-    setAuthenticatedUser(null);
-    setRoleChoices(null);
-    setPassword('');
-    setError('');
-  }
-
-  if (authenticatedUser && roleChoices) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 px-4 safe-area-inset-top safe-area-inset-bottom">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-orange-500/15 border border-orange-500/40 mb-4">
-              <Users className="w-9 h-9 text-orange-400" />
-            </div>
-            <p className="text-orange-400 text-sm font-medium">Inloggad som</p>
-            <h1 className="text-3xl font-bold text-white tracking-tight">{authenticatedUser.name}</h1>
-            <p className="text-gray-400 mt-2">Välj vad du ska arbeta med just nu.</p>
-          </div>
-
-          <div className="space-y-3">
-            {roleChoices.map(role => (
-              <button
-                key={role}
-                onClick={() => chooseRole(role)}
-                className="w-full min-h-14 rounded-xl bg-gray-900 hover:bg-gray-800 active:bg-gray-800 border border-gray-800 hover:border-orange-500/50 text-white font-semibold px-4 py-3 text-left transition-all"
-              >
-                {ROLE_LABELS[role]}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={resetLogin}
-            className="w-full h-12 mt-5 rounded-xl bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800 font-medium"
-          >
-            Byt användare
-          </button>
-        </div>
-      </div>
-    );
+    setCurrentUser(withSelectedRole(user, roles[0]), 'role-select');
   }
 
   return (

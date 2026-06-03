@@ -6,6 +6,7 @@ import { useUnreadChatCount } from '../lib/chatUnread';
 import ChatPanel from './ChatPanel';
 import Dashboard from './Dashboard';
 import RequestForm from './RequestForm';
+import RoleMenuButton from './RoleMenuButton';
 import StaffDashboard from './StaffDashboard';
 
 type ServingTab = 'orders' | 'staff' | 'request' | 'chat';
@@ -40,12 +41,15 @@ export default function ServingManagerDashboard() {
             <h1 className="text-white font-bold text-lg">Serveringsansvarig</h1>
             <p className="text-gray-400 text-xs">{currentUser?.name}</p>
           </div>
-          <button
-            onClick={logout}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <RoleMenuButton />
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-4 gap-2 mt-3">
