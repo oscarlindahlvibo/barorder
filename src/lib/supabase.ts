@@ -160,9 +160,13 @@ export interface SchedulePosition {
 export interface SchedulePerson {
   id: string;
   name: string;
-  preferred_day: string;
-  available_start: string;
-  available_end: string;
+  preferred_day?: string | null;
+  available_start?: string | null;
+  available_end?: string | null;
+  friday_start?: string | null;
+  friday_end?: string | null;
+  saturday_start?: string | null;
+  saturday_end?: string | null;
   note: string | null;
   active: boolean;
   sort_order: number;

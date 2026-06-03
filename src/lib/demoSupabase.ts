@@ -120,14 +120,14 @@ const seedDb: DemoDb = {
     { id: 'pos-plock', name: 'Plock', active: true, sort_order: 5, created_at: now },
   ],
   schedule_people: [
-    { id: 'staff-anna', name: 'Anna', preferred_day: 'Fredag', available_start: '18:00', available_end: '02:00', note: null, active: true, sort_order: 1, created_at: now, updated_at: now },
-    { id: 'staff-erik', name: 'Erik', preferred_day: 'Fredag', available_start: '18:00', available_end: '02:00', note: null, active: true, sort_order: 2, created_at: now, updated_at: now },
-    { id: 'staff-malin', name: 'Malin', preferred_day: 'Fredag', available_start: '12:00', available_end: '19:00', note: null, active: true, sort_order: 3, created_at: now, updated_at: now },
-    { id: 'staff-kalle', name: 'Kalle', preferred_day: 'Fredag', available_start: '12:00', available_end: '19:00', note: null, active: true, sort_order: 4, created_at: now, updated_at: now },
-    { id: 'staff-nora', name: 'Nora', preferred_day: 'Lördag', available_start: '14:00', available_end: '20:00', note: null, active: true, sort_order: 5, created_at: now, updated_at: now },
-    { id: 'staff-sam', name: 'Sam', preferred_day: 'Lördag', available_start: '14:00', available_end: '20:00', note: null, active: true, sort_order: 6, created_at: now, updated_at: now },
-    { id: 'staff-tom', name: 'Tom', preferred_day: 'Lördag', available_start: '19:00', available_end: '02:00', note: null, active: true, sort_order: 7, created_at: now, updated_at: now },
-    { id: 'staff-alicia', name: 'Alicia', preferred_day: 'Lördag', available_start: '19:00', available_end: '02:00', note: null, active: true, sort_order: 8, created_at: now, updated_at: now },
+    { id: 'staff-anna', name: 'Anna', friday_start: '18:00', friday_end: '02:00', saturday_start: null, saturday_end: null, note: null, active: true, sort_order: 1, created_at: now, updated_at: now },
+    { id: 'staff-erik', name: 'Erik', friday_start: '18:00', friday_end: '02:00', saturday_start: null, saturday_end: null, note: null, active: true, sort_order: 2, created_at: now, updated_at: now },
+    { id: 'staff-malin', name: 'Malin', friday_start: '12:00', friday_end: '19:00', saturday_start: null, saturday_end: null, note: null, active: true, sort_order: 3, created_at: now, updated_at: now },
+    { id: 'staff-kalle', name: 'Kalle', friday_start: '12:00', friday_end: '19:00', saturday_start: null, saturday_end: null, note: null, active: true, sort_order: 4, created_at: now, updated_at: now },
+    { id: 'staff-nora', name: 'Nora', friday_start: null, friday_end: null, saturday_start: '14:00', saturday_end: '20:00', note: null, active: true, sort_order: 5, created_at: now, updated_at: now },
+    { id: 'staff-sam', name: 'Sam', friday_start: null, friday_end: null, saturday_start: '14:00', saturday_end: '20:00', note: null, active: true, sort_order: 6, created_at: now, updated_at: now },
+    { id: 'staff-tom', name: 'Tom', friday_start: null, friday_end: null, saturday_start: '19:00', saturday_end: '02:00', note: null, active: true, sort_order: 7, created_at: now, updated_at: now },
+    { id: 'staff-alicia', name: 'Alicia', friday_start: null, friday_end: null, saturday_start: '19:00', saturday_end: '02:00', note: null, active: true, sort_order: 8, created_at: now, updated_at: now },
   ],
   schedule_entries: [
     { id: 'schedule-1', day: 'Fredag', position_id: 'pos-stora-baren', position: 'Stora baren', start_time: '19:00', end_time: '02:00', required_count: 10, assigned_staff_ids: ['staff-anna', 'staff-erik'], assigned_names: ['Anna', 'Erik'], note: null, active: true, sort_order: 1, created_at: now, updated_at: now },
@@ -223,6 +223,20 @@ function loadDb(): DemoDb {
     db.schedule_people = clone(seedDb.schedule_people);
     saveDb(db);
   }
+  let changedSchedulePeople = false;
+  db.schedule_people.forEach(person => {
+    if (person.preferred_day === 'Fredag' && !person.friday_start && person.available_start && person.available_end) {
+      person.friday_start = person.available_start;
+      person.friday_end = person.available_end;
+      changedSchedulePeople = true;
+    }
+    if (person.preferred_day === 'Lördag' && !person.saturday_start && person.available_start && person.available_end) {
+      person.saturday_start = person.available_start;
+      person.saturday_end = person.available_end;
+      changedSchedulePeople = true;
+    }
+  });
+  if (changedSchedulePeople) saveDb(db);
   return db;
 }
 
@@ -422,7 +436,7 @@ class DemoQuery {
     if (this.table === 'kitchen_orders') return { status: 'ready', created_by: null, updated_at: createdAt, dismissed_at: null, ...base } as KitchenOrder;
     if (this.table === 'schedule_entries') return { day: '', position: '', start_time: '19:00', end_time: '02:00', active: true, required_count: 1, assigned_names: [], note: null, sort_order: 0, updated_at: createdAt, ...base } as ScheduleEntry;
     if (this.table === 'schedule_positions') return { active: true, sort_order: 0, ...base } as SchedulePosition;
-    if (this.table === 'schedule_people') return { active: true, preferred_day: 'Fredag', available_start: '19:00', available_end: '02:00', note: null, sort_order: 0, updated_at: createdAt, ...base } as SchedulePerson;
+    if (this.table === 'schedule_people') return { active: true, friday_start: null, friday_end: null, saturday_start: null, saturday_end: null, note: null, sort_order: 0, updated_at: createdAt, ...base } as SchedulePerson;
     return base as RestockRequestItem;
   }
 

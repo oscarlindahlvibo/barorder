@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, LogOut, RefreshCw } from 'lucide-react';
-import { ScheduleEntry, supabase } from '../lib/supabase';
+import { AlertTriangle, CalendarDays, LogOut, RefreshCw } from 'lucide-react';
+import { ScheduleEntry, SchedulePerson, supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
 
 function timeToMinutes(time: string) {
@@ -11,6 +11,28 @@ function timeToMinutes(time: string) {
 function entryRange(entry: ScheduleEntry) {
   const start = timeToMinutes(entry.start_time);
   let end = timeToMinutes(entry.end_time);
+  if (end <= start) end += 24 * 60;
+  return { start, end };
+}
+
+function availabilityForDay(person: SchedulePerson, day: string) {
+  if (day === 'Fredag') return { start: person.friday_start || null, end: person.friday_end || null };
+  if (day === 'Lördag') return { start: person.saturday_start || null, end: person.saturday_end || null };
+  if (person.preferred_day === day) return { start: person.available_start || null, end: person.available_end || null };
+  return { start: null, end: null };
+}
+
+function isWithinAvailability(entry: ScheduleEntry, person: SchedulePerson) {
+  const availability = availabilityForDay(person, entry.day);
+  if (!availability.start || !availability.end) return false;
+  const shift = entryRange(entry);
+  const available = scheduleRange(availability.start, availability.end);
+  return shift.start >= available.start && shift.end <= available.end;
+}
+
+function scheduleRange(startTime: string, endTime: string) {
+  const start = timeToMinutes(startTime);
+  let end = timeToMinutes(endTime);
   if (end <= start) end += 24 * 60;
   return { start, end };
 }
@@ -31,18 +53,23 @@ function statusFor(entry: ScheduleEntry) {
 export default function ScheduleDisplay() {
   const { logout } = useApp();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
+  const [people, setPeople] = useState<SchedulePerson[]>([]);
   const [selectedDay, setSelectedDay] = useState('');
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { data } = await supabase
-      .from('schedule_entries')
-      .select('*')
-      .eq('active', true)
-      .order('day')
-      .order('sort_order');
-    const rows = data || [];
+    const [entriesResult, peopleResult] = await Promise.all([
+      supabase
+        .from('schedule_entries')
+        .select('*')
+        .eq('active', true)
+        .order('day')
+        .order('sort_order'),
+      supabase.from('schedule_people').select('*').eq('active', true).order('sort_order'),
+    ]);
+    const rows = entriesResult.data || [];
     setEntries(rows);
+    setPeople(peopleResult.data || []);
     setSelectedDay(current => current || rows[0]?.day || '');
     setLoading(false);
   }
@@ -168,6 +195,11 @@ export default function ScheduleDisplay() {
                           const left = ((range.start - minStart) / totalMinutes) * 100;
                           const width = ((range.end - range.start) / totalMinutes) * 100;
                           const status = statusFor(entry);
+                          const outsideNames = (entry.assigned_staff_ids || [])
+                            .map(id => people.find(person => person.id === id))
+                            .filter((person): person is SchedulePerson => Boolean(person))
+                            .filter(person => !isWithinAvailability(entry, person))
+                            .map(person => person.name);
                           return (
                             <div
                               key={entry.id}
@@ -184,6 +216,12 @@ export default function ScheduleDisplay() {
                               <p className="mt-1 text-sm font-medium text-white/90 line-clamp-2">
                                 {entry.assigned_names.length ? entry.assigned_names.join(', ') : 'Inga bokade'}
                               </p>
+                              {outsideNames.length > 0 && (
+                                <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-200">
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  Utanför tid: {outsideNames.join(', ')}
+                                </p>
+                              )}
                             </div>
                           );
                         })}

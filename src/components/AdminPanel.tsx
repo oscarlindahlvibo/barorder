@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare, CalendarDays } from 'lucide-react';
+import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare, CalendarDays, AlertTriangle } from 'lucide-react';
 import { supabase, AppUser, Location, Product, CATEGORIES, ALL_USER_ROLES, ROLE_LABELS, ScheduleEntry, SchedulePerson, SchedulePosition, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import ChatPanel from './ChatPanel';
@@ -382,9 +382,10 @@ const DEFAULT_SCHEDULE_FORM = {
 
 const DEFAULT_SCHEDULE_PERSON_FORM = {
   name: '',
-  preferred_day: 'Fredag',
-  available_start: '19:00',
-  available_end: '02:00',
+  friday_start: '',
+  friday_end: '',
+  saturday_start: '',
+  saturday_end: '',
   note: '',
 };
 
@@ -400,9 +401,29 @@ function scheduleRange(startTime: string, endTime: string) {
   return { start, end };
 }
 
-function isWithinAvailability(entry: Pick<ScheduleEntry, 'start_time' | 'end_time'>, person: SchedulePerson) {
+function availabilityForDay(person: SchedulePerson, day: string) {
+  if (day === 'Fredag') {
+    return { start: person.friday_start || null, end: person.friday_end || null };
+  }
+  if (day === 'Lördag') {
+    return { start: person.saturday_start || null, end: person.saturday_end || null };
+  }
+  if (person.preferred_day === day) {
+    return { start: person.available_start || null, end: person.available_end || null };
+  }
+  return { start: null, end: null };
+}
+
+function formatAvailability(person: SchedulePerson, day: string) {
+  const availability = availabilityForDay(person, day);
+  return availability.start && availability.end ? `${availability.start}-${availability.end}` : 'Ingen tid angiven';
+}
+
+function isWithinAvailability(entry: Pick<ScheduleEntry, 'day' | 'start_time' | 'end_time'>, person: SchedulePerson) {
+  const availability = availabilityForDay(person, entry.day);
+  if (!availability.start || !availability.end) return false;
   const shift = scheduleRange(entry.start_time, entry.end_time);
-  const available = scheduleRange(person.available_start, person.available_end);
+  const available = scheduleRange(availability.start, availability.end);
   return shift.start >= available.start && shift.end <= available.end;
 }
 
@@ -471,9 +492,10 @@ function ScheduleTab() {
     setEditingPerson(person.id);
     setPersonForm({
       name: person.name,
-      preferred_day: person.preferred_day,
-      available_start: person.available_start,
-      available_end: person.available_end,
+      friday_start: person.friday_start || '',
+      friday_end: person.friday_end || '',
+      saturday_start: person.saturday_start || '',
+      saturday_end: person.saturday_end || '',
       note: person.note || '',
     });
   }
@@ -507,9 +529,13 @@ function ScheduleTab() {
     setSavingPerson(true);
     const values = {
       name: personForm.name.trim(),
-      preferred_day: personForm.preferred_day.trim(),
-      available_start: personForm.available_start,
-      available_end: personForm.available_end,
+      friday_start: personForm.friday_start || null,
+      friday_end: personForm.friday_end || null,
+      saturday_start: personForm.saturday_start || null,
+      saturday_end: personForm.saturday_end || null,
+      preferred_day: personForm.friday_start && personForm.friday_end ? 'Fredag' : personForm.saturday_start && personForm.saturday_end ? 'Lördag' : 'Fredag',
+      available_start: personForm.friday_start || personForm.saturday_start || null,
+      available_end: personForm.friday_end || personForm.saturday_end || null,
       note: personForm.note.trim() || null,
       sort_order: editingPerson ? people.find(person => person.id === editingPerson)?.sort_order ?? people.length + 1 : people.length + 1,
     };
@@ -542,6 +568,32 @@ function ScheduleTab() {
   async function save() {
     const position = positions.find(item => item.id === form.position_id);
     if (!form.day || !position || !form.start_time || !form.end_time || form.required_count < 0) return;
+    const candidate = {
+      id: editing || 'new-entry',
+      day: form.day,
+      start_time: form.start_time,
+      end_time: form.end_time,
+    };
+    const conflicts = form.assigned_staff_ids
+      .map(id => people.find(person => person.id === id))
+      .filter((person): person is SchedulePerson => Boolean(person))
+      .map(person => ({
+        person,
+        entry: entries.find(entry => entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidate, entry)),
+      }))
+      .filter(item => item.entry);
+    if (conflicts.length > 0) {
+      window.alert(`Kan inte spara. Dubbelbokning: ${conflicts.map(item => `${item.person.name} (${item.entry?.position} ${item.entry?.start_time}-${item.entry?.end_time})`).join(', ')}`);
+      return;
+    }
+    const outsideAvailability = form.assigned_staff_ids
+      .map(id => people.find(person => person.id === id))
+      .filter((person): person is SchedulePerson => Boolean(person))
+      .filter(person => !isWithinAvailability(candidate, person));
+    if (outsideAvailability.length > 0) {
+      const approved = window.confirm(`Följande personer ligger utanför sin inlagda arbetstid: ${outsideAvailability.map(person => person.name).join(', ')}. Vill du schemalägga ändå?`);
+      if (!approved) return;
+    }
     setSaving(true);
     const assignedNames = form.assigned_staff_ids
       .map(id => people.find(person => person.id === id)?.name)
@@ -571,6 +623,25 @@ function ScheduleTab() {
   }
 
   function toggleAssignedStaff(personId: string) {
+    const person = people.find(item => item.id === personId);
+    const candidate = {
+      id: editing || 'new-entry',
+      day: form.day,
+      start_time: form.start_time,
+      end_time: form.end_time,
+    };
+    const alreadySelected = form.assigned_staff_ids.includes(personId);
+    if (!alreadySelected && person) {
+      const conflict = entries.find(entry => entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidate, entry));
+      if (conflict) {
+        window.alert(`${person.name} är redan bokad på ${conflict.position} ${conflict.start_time}-${conflict.end_time}.`);
+        return;
+      }
+      if (!isWithinAvailability(candidate, person)) {
+        const approved = window.confirm(`${person.name} ligger utanför sin inlagda arbetstid för ${form.day} (${formatAvailability(person, form.day)}). Schemalägga ändå?`);
+        if (!approved) return;
+      }
+    }
     setForm(current => ({
       ...current,
       assigned_staff_ids: current.assigned_staff_ids.includes(personId)
@@ -599,12 +670,12 @@ function ScheduleTab() {
   };
   const activePeople = people.filter(person => person.active);
   const selectablePeople = activePeople.map(person => {
-    const available = person.preferred_day === form.day && isWithinAvailability(candidateEntry, person);
+    const available = isWithinAvailability(candidateEntry, person);
     const conflictingEntry = entries.find(entry => (
       entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidateEntry, entry)
     ));
     const selected = form.assigned_staff_ids.includes(person.id);
-    return { person, available, conflictingEntry, selected, selectable: selected || (available && !conflictingEntry) };
+    return { person, available, conflictingEntry, selected, selectable: selected || !conflictingEntry };
   });
 
   return (
@@ -640,31 +711,49 @@ function ScheduleTab() {
 
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
           <h3 className="text-white font-semibold">{editingPerson ? 'Redigera schemapersonal' : 'Lägg till schemapersonal'}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-3">
             <input
               value={personForm.name}
               onChange={e => setPersonForm(f => ({ ...f, name: e.target.value }))}
               placeholder="Namn"
-              className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
             />
-            <input
-              value={personForm.preferred_day}
-              onChange={e => setPersonForm(f => ({ ...f, preferred_day: e.target.value }))}
-              placeholder="Dag"
-              className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
-            />
-            <input
-              value={personForm.available_start}
-              onChange={e => setPersonForm(f => ({ ...f, available_start: e.target.value }))}
-              type="time"
-              className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
-            />
-            <input
-              value={personForm.available_end}
-              onChange={e => setPersonForm(f => ({ ...f, available_end: e.target.value }))}
-              type="time"
-              className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
+                <p className="text-sm font-semibold text-white mb-2">Fredag</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={personForm.friday_start}
+                    onChange={e => setPersonForm(f => ({ ...f, friday_start: e.target.value }))}
+                    type="time"
+                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+                  />
+                  <input
+                    value={personForm.friday_end}
+                    onChange={e => setPersonForm(f => ({ ...f, friday_end: e.target.value }))}
+                    type="time"
+                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-gray-950 p-3">
+                <p className="text-sm font-semibold text-white mb-2">Lördag</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={personForm.saturday_start}
+                    onChange={e => setPersonForm(f => ({ ...f, saturday_start: e.target.value }))}
+                    type="time"
+                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+                  />
+                  <input
+                    value={personForm.saturday_end}
+                    onChange={e => setPersonForm(f => ({ ...f, saturday_end: e.target.value }))}
+                    type="time"
+                    className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <input
             value={personForm.note}
@@ -692,7 +781,7 @@ function ScheduleTab() {
               <div key={person.id} className={`flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 ${person.active ? '' : 'opacity-50'}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-white">{person.name}</p>
-                  <p className="text-xs text-gray-500">{person.preferred_day} {person.available_start}-{person.available_end}</p>
+                  <p className="text-xs text-gray-500">Fre {person.friday_start && person.friday_end ? `${person.friday_start}-${person.friday_end}` : '—'} · Lör {person.saturday_start && person.saturday_end ? `${person.saturday_start}-${person.saturday_end}` : '—'}</p>
                 </div>
                 <button onClick={() => startEditPerson(person)} title="Redigera" className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800">
                   <Edit2 className="w-4 h-4" />
@@ -775,9 +864,14 @@ function ScheduleTab() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">{person.name}</p>
                       <p className="text-xs">
-                        {person.preferred_day} {person.available_start}-{person.available_end}
+                        {form.day}: {formatAvailability(person, form.day)}
                       </p>
-                      {!available && !selected && <p className="text-xs text-red-300">Ej tillgänglig för tiden</p>}
+                      {!available && (
+                        <p className="text-xs text-amber-300 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Utanför inlagd arbetstid
+                        </p>
+                      )}
                       {conflictingEntry && !selected && <p className="text-xs text-red-300">Dubbelbokning: {conflictingEntry.position} {conflictingEntry.start_time}-{conflictingEntry.end_time}</p>}
                     </div>
                   </div>
@@ -823,6 +917,11 @@ function ScheduleTab() {
       {entries.map(entry => {
         const booked = entry.assigned_names.length;
         const balance = booked - entry.required_count;
+        const outsideNames = (entry.assigned_staff_ids || [])
+          .map(id => people.find(person => person.id === id))
+          .filter((person): person is SchedulePerson => Boolean(person))
+          .filter(person => !isWithinAvailability(entry, person))
+          .map(person => person.name);
         const status = balance < 0 ? `Saknas ${Math.abs(balance)}` : balance > 0 ? `Överbemannad ${balance}` : 'OK';
         const statusClass = balance < 0
           ? 'bg-red-500/15 text-red-300 border-red-500/30'
@@ -839,6 +938,12 @@ function ScheduleTab() {
               </div>
               <p className="text-gray-400 text-sm mt-1">{entry.start_time}-{entry.end_time} · Behov {entry.required_count} · Bokade {booked}</p>
               <p className="text-gray-500 text-sm mt-1 truncate">{entry.assigned_names.length ? entry.assigned_names.join(', ') : 'Inga bokade namn'}</p>
+              {outsideNames.length > 0 && (
+                <p className="text-amber-300 text-xs mt-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Utanför arbetstid: {outsideNames.join(', ')}
+                </p>
+              )}
               {entry.note && <p className="text-orange-300 text-xs mt-2">{entry.note}</p>}
             </div>
             <div className="flex gap-2 flex-shrink-0">
