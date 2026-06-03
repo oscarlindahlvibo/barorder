@@ -491,6 +491,17 @@ function overlapsSchedule(
   return candidateRange.start < entryRange.end && entryRange.start < candidateRange.end;
 }
 
+function daySortValue(day: string) {
+  const normalized = day.trim().toLowerCase();
+  if (normalized === 'fredag') return 1;
+  if (normalized === 'lördag' || normalized === 'lordag') return 2;
+  return 10;
+}
+
+function scheduleEntryTimeValue(entry: ScheduleEntry) {
+  return scheduleTimeToMinutes(entry.start_time);
+}
+
 function ScheduleTab() {
   const { currentUser } = useApp();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
@@ -511,6 +522,11 @@ function ScheduleTab() {
   const [saving, setSaving] = useState(false);
   const [savingPerson, setSavingPerson] = useState(false);
   const [form, setForm] = useState(DEFAULT_SCHEDULE_FORM);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [staffSort, setStaffSort] = useState<'name' | 'available' | 'selected'>('name');
+  const [entryDayFilter, setEntryDayFilter] = useState('all');
+  const [entryPositionFilter, setEntryPositionFilter] = useState('all');
+  const [entrySort, setEntrySort] = useState<'day' | 'position' | 'time'>('day');
 
   async function load() {
     const [entriesResult, positionsResult, peopleResult] = await Promise.all([
@@ -829,14 +845,54 @@ function ScheduleTab() {
     end_time: form.end_time,
   };
   const activePeople = people.filter(person => person.active);
-  const selectablePeople = activePeople.map(person => {
-    const available = isWithinAvailability(candidateEntry, person);
-    const conflictingEntry = entries.find(entry => (
-      entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidateEntry, entry)
-    ));
-    const selected = form.assigned_staff_ids.includes(person.id);
-    return { person, available, conflictingEntry, selected, selectable: selected || !conflictingEntry };
-  });
+  const staffSearchTerm = staffSearch.trim().toLowerCase();
+  const selectablePeople = activePeople
+    .map(person => {
+      const available = isWithinAvailability(candidateEntry, person);
+      const conflictingEntry = entries.find(entry => (
+        entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidateEntry, entry)
+      ));
+      const selected = form.assigned_staff_ids.includes(person.id);
+      return { person, available, conflictingEntry, selected, selectable: selected || !conflictingEntry };
+    })
+    .filter(({ person }) => (
+      !staffSearchTerm ||
+      person.name.toLowerCase().includes(staffSearchTerm) ||
+      (person.note || '').toLowerCase().includes(staffSearchTerm)
+    ))
+    .sort((a, b) => {
+      if (staffSort === 'selected') {
+        const selectedDiff = Number(b.selected) - Number(a.selected);
+        if (selectedDiff !== 0) return selectedDiff;
+      }
+      if (staffSort === 'available') {
+        const availableDiff = Number(b.available && b.selectable) - Number(a.available && a.selectable);
+        if (availableDiff !== 0) return availableDiff;
+      }
+      return a.person.name.localeCompare(b.person.name, 'sv');
+    });
+  const scheduleDays = Array.from(new Set(entries.map(entry => entry.day)))
+    .sort((a, b) => daySortValue(a) - daySortValue(b) || a.localeCompare(b, 'sv'));
+  const schedulePositions = Array.from(new Set([
+    ...positions.map(position => position.name),
+    ...entries.map(entry => entry.position),
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'sv'));
+  const visibleEntries = entries
+    .filter(entry => entryDayFilter === 'all' || entry.day === entryDayFilter)
+    .filter(entry => entryPositionFilter === 'all' || entry.position === entryPositionFilter)
+    .sort((a, b) => {
+      if (entrySort === 'position') {
+        const positionDiff = a.position.localeCompare(b.position, 'sv');
+        if (positionDiff !== 0) return positionDiff;
+      }
+      if (entrySort === 'time') {
+        const timeDiff = scheduleEntryTimeValue(a) - scheduleEntryTimeValue(b);
+        if (timeDiff !== 0) return timeDiff;
+      }
+      const dayDiff = daySortValue(a.day) - daySortValue(b.day) || a.day.localeCompare(b.day, 'sv');
+      if (dayDiff !== 0) return dayDiff;
+      return scheduleEntryTimeValue(a) - scheduleEntryTimeValue(b) || a.position.localeCompare(b.position, 'sv');
+    });
 
   return (
     <div className="p-4 space-y-4">
@@ -1101,7 +1157,29 @@ function ScheduleTab() {
             </label>
           </div>
           <div className="space-y-2">
-            <p className="text-gray-300 text-sm font-medium">Välj personal</p>
+            <div className="flex flex-col md:flex-row md:items-end gap-2">
+              <label className="flex-1">
+                <span className="text-gray-300 text-sm font-medium">Välj personal</span>
+                <input
+                  value={staffSearch}
+                  onChange={e => setStaffSearch(e.target.value)}
+                  placeholder="Sök namn eller anteckning"
+                  className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500"
+                />
+              </label>
+              <label className="md:w-56">
+                <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Sortera</span>
+                <select
+                  value={staffSort}
+                  onChange={e => setStaffSort(e.target.value as typeof staffSort)}
+                  className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+                >
+                  <option value="name">Namn A-Ö</option>
+                  <option value="available">Tillgängliga först</option>
+                  <option value="selected">Valda först</option>
+                </select>
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {selectablePeople.map(({ person, selected, selectable, conflictingEntry, available }) => (
                 <label
@@ -1138,6 +1216,11 @@ function ScheduleTab() {
                   </div>
                 </label>
               ))}
+              {selectablePeople.length === 0 && (
+                <div className="md:col-span-2 rounded-xl border border-gray-800 bg-gray-950 px-3 py-5 text-center text-gray-500 text-sm">
+                  Ingen personal matchar sökningen.
+                </div>
+              )}
             </div>
           </div>
           <textarea
@@ -1175,7 +1258,59 @@ function ScheduleTab() {
         </button>
       )}
 
-      {entries.map(entry => {
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-2">
+          <label className="flex-1">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Dag</span>
+            <select
+              value={entryDayFilter}
+              onChange={e => setEntryDayFilter(e.target.value)}
+              className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+            >
+              <option value="all">Alla dagar</option>
+              {scheduleDays.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex-1">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Arbetsställe</span>
+            <select
+              value={entryPositionFilter}
+              onChange={e => setEntryPositionFilter(e.target.value)}
+              className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+            >
+              <option value="all">Alla arbetsställen</option>
+              {schedulePositions.map(position => (
+                <option key={position} value={position}>{position}</option>
+              ))}
+            </select>
+          </label>
+          <label className="lg:w-56">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Sortera pass</span>
+            <select
+              value={entrySort}
+              onChange={e => setEntrySort(e.target.value as typeof entrySort)}
+              className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+            >
+              <option value="day">Dag och tid</option>
+              <option value="position">Arbetsställe</option>
+              <option value="time">Starttid</option>
+            </select>
+          </label>
+        </div>
+        <p className="text-gray-500 text-sm">
+          Visar {visibleEntries.length} av {entries.length} pass.
+        </p>
+      </div>
+
+      {visibleEntries.length === 0 && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 text-center text-gray-500">
+          Inga pass matchar filtreringen.
+        </div>
+      )}
+
+      {visibleEntries.map(entry => {
         const booked = entry.assigned_names.length;
         const balance = booked - entry.required_count;
         const outsideNames = (entry.assigned_staff_ids || [])
