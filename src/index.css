@@ -138,6 +138,115 @@
     color: #cbd5e1;
   }
 
+  .theme-light .text-orange-100,
+  .theme-light .text-orange-200,
+  .theme-light .text-orange-300,
+  .theme-light .text-orange-400,
+  .theme-light .text-orange-500 {
+    color: #9a3412;
+  }
+
+  .theme-light .text-amber-100,
+  .theme-light .text-amber-200,
+  .theme-light .text-amber-300,
+  .theme-light .text-amber-400,
+  .theme-light .text-yellow-100,
+  .theme-light .text-yellow-200,
+  .theme-light .text-yellow-300,
+  .theme-light .text-yellow-400 {
+    color: #92400e;
+  }
+
+  .theme-light .text-green-100,
+  .theme-light .text-green-200,
+  .theme-light .text-green-300,
+  .theme-light .text-green-400 {
+    color: #166534;
+  }
+
+  .theme-light .text-red-100,
+  .theme-light .text-red-200,
+  .theme-light .text-red-300,
+  .theme-light .text-red-400 {
+    color: #991b1b;
+  }
+
+  .theme-light .text-blue-100,
+  .theme-light .text-blue-200,
+  .theme-light .text-blue-300,
+  .theme-light .text-blue-400 {
+    color: #1d4ed8;
+  }
+
+  .theme-light .bg-orange-500\/10,
+  .theme-light .bg-orange-500\/15,
+  .theme-light .bg-orange-500\/20,
+  .theme-light .bg-orange-500\/25,
+  .theme-light .bg-orange-500\/30,
+  .theme-light .bg-orange-950\/20 {
+    background-color: rgb(255 237 213 / 0.78);
+  }
+
+  .theme-light .bg-amber-500\/10,
+  .theme-light .bg-amber-500\/15,
+  .theme-light .bg-amber-500\/20,
+  .theme-light .bg-yellow-500\/10,
+  .theme-light .bg-yellow-500\/15,
+  .theme-light .bg-yellow-500\/20 {
+    background-color: rgb(254 243 199 / 0.82);
+  }
+
+  .theme-light .bg-green-500\/10,
+  .theme-light .bg-green-500\/15,
+  .theme-light .bg-green-500\/20 {
+    background-color: rgb(220 252 231 / 0.86);
+  }
+
+  .theme-light .bg-red-500\/10,
+  .theme-light .bg-red-500\/15,
+  .theme-light .bg-red-500\/20 {
+    background-color: rgb(254 226 226 / 0.86);
+  }
+
+  .theme-light .bg-blue-500\/10,
+  .theme-light .bg-blue-500\/15,
+  .theme-light .bg-blue-500\/20 {
+    background-color: rgb(219 234 254 / 0.86);
+  }
+
+  .theme-light .border-orange-500\/30,
+  .theme-light .border-orange-500\/40,
+  .theme-light .border-orange-500\/50,
+  .theme-light .border-orange-500\/60,
+  .theme-light .border-orange-500\/70 {
+    border-color: rgb(234 88 12 / 0.42);
+  }
+
+  .theme-light .border-amber-500\/30,
+  .theme-light .border-amber-500\/40,
+  .theme-light .border-yellow-500\/30,
+  .theme-light .border-yellow-500\/40 {
+    border-color: rgb(217 119 6 / 0.42);
+  }
+
+  .theme-light .border-green-500\/30,
+  .theme-light .border-green-500\/40,
+  .theme-light .border-green-500\/50 {
+    border-color: rgb(22 163 74 / 0.42);
+  }
+
+  .theme-light .border-red-500\/30,
+  .theme-light .border-red-500\/40,
+  .theme-light .border-red-500\/50 {
+    border-color: rgb(220 38 38 / 0.42);
+  }
+
+  .theme-light .border-blue-500\/30,
+  .theme-light .border-blue-500\/40,
+  .theme-light .border-blue-500\/50 {
+    border-color: rgb(37 99 235 / 0.42);
+  }
+
   .theme-light .placeholder-gray-600::placeholder,
   .theme-light .placeholder-gray-500::placeholder,
   .theme-light .placeholder-gray-400::placeholder {
