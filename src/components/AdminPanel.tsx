@@ -491,6 +491,21 @@ function overlapsSchedule(
   return candidateRange.start < entryRange.end && entryRange.start < candidateRange.end;
 }
 
+function scheduleConflictsFor(entry: ScheduleEntry, entries: ScheduleEntry[], people: SchedulePerson[]) {
+  return (entry.assigned_staff_ids || [])
+    .map(id => {
+      const person = people.find(item => item.id === id);
+      const conflictingEntry = entries.find(candidate => (
+        candidate.id !== entry.id &&
+        candidate.active &&
+        candidate.assigned_staff_ids?.includes(id) &&
+        overlapsSchedule(entry, candidate)
+      ));
+      return person && conflictingEntry ? { person, entry: conflictingEntry } : null;
+    })
+    .filter((item): item is { person: SchedulePerson; entry: ScheduleEntry } => Boolean(item));
+}
+
 function daySortValue(day: string) {
   const normalized = day.trim().toLowerCase();
   if (normalized === 'fredag') return 1;
@@ -526,6 +541,7 @@ function ScheduleTab() {
   const [staffSort, setStaffSort] = useState<'name' | 'available' | 'selected'>('name');
   const [entryDayFilter, setEntryDayFilter] = useState('all');
   const [entryPositionFilter, setEntryPositionFilter] = useState('all');
+  const [entryPersonFilter, setEntryPersonFilter] = useState('all');
   const [entrySort, setEntrySort] = useState<'day' | 'position' | 'time'>('day');
 
   async function load() {
@@ -750,18 +766,6 @@ function ScheduleTab() {
       start_time: form.start_time,
       end_time: form.end_time,
     };
-    const conflicts = form.assigned_staff_ids
-      .map(id => people.find(person => person.id === id))
-      .filter((person): person is SchedulePerson => Boolean(person))
-      .map(person => ({
-        person,
-        entry: entries.find(entry => entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidate, entry)),
-      }))
-      .filter(item => item.entry);
-    if (conflicts.length > 0) {
-      window.alert(`Kan inte spara. Dubbelbokning: ${conflicts.map(item => `${item.person.name} (${item.entry?.position} ${item.entry?.start_time}-${item.entry?.end_time})`).join(', ')}`);
-      return;
-    }
     const outsideAvailability = form.assigned_staff_ids
       .map(id => people.find(person => person.id === id))
       .filter((person): person is SchedulePerson => Boolean(person))
@@ -808,11 +812,6 @@ function ScheduleTab() {
     };
     const alreadySelected = form.assigned_staff_ids.includes(personId);
     if (!alreadySelected && person) {
-      const conflict = entries.find(entry => entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidate, entry));
-      if (conflict) {
-        window.alert(`${person.name} är redan bokad på ${conflict.position} ${conflict.start_time}-${conflict.end_time}.`);
-        return;
-      }
       if (!isWithinAvailability(candidate, person)) {
         const approved = window.confirm(`${person.name} ligger utanför sin inlagda arbetstid för ${form.day} (${formatAvailability(person, form.day)}). Schemalägga ändå?`);
         if (!approved) return;
@@ -853,7 +852,7 @@ function ScheduleTab() {
         entry.assigned_staff_ids?.includes(person.id) && overlapsSchedule(candidateEntry, entry)
       ));
       const selected = form.assigned_staff_ids.includes(person.id);
-      return { person, available, conflictingEntry, selected, selectable: selected || !conflictingEntry };
+      return { person, available, conflictingEntry, selected, selectable: true };
     })
     .filter(({ person }) => (
       !staffSearchTerm ||
@@ -880,6 +879,7 @@ function ScheduleTab() {
   const visibleEntries = entries
     .filter(entry => entryDayFilter === 'all' || entry.day === entryDayFilter)
     .filter(entry => entryPositionFilter === 'all' || entry.position === entryPositionFilter)
+    .filter(entry => entryPersonFilter === 'all' || entry.assigned_staff_ids?.includes(entryPersonFilter))
     .sort((a, b) => {
       if (entrySort === 'position') {
         const positionDiff = a.position.localeCompare(b.position, 'sv');
@@ -1211,7 +1211,12 @@ function ScheduleTab() {
                           Utanför inlagd arbetstid
                         </p>
                       )}
-                      {conflictingEntry && !selected && <p className="text-xs text-red-300">Dubbelbokning: {conflictingEntry.position} {conflictingEntry.start_time}-{conflictingEntry.end_time}</p>}
+                      {conflictingEntry && (
+                        <p className="text-xs text-red-300 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Dubbelbokad: {conflictingEntry.position} {conflictingEntry.start_time}-{conflictingEntry.end_time}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </label>
@@ -1286,6 +1291,22 @@ function ScheduleTab() {
               ))}
             </select>
           </label>
+          <label className="flex-1">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Personal</span>
+            <select
+              value={entryPersonFilter}
+              onChange={e => setEntryPersonFilter(e.target.value)}
+              className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-orange-500"
+            >
+              <option value="all">Alla personer</option>
+              {people
+                .filter(person => person.active || entries.some(entry => entry.assigned_staff_ids?.includes(person.id)))
+                .sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+                .map(person => (
+                  <option key={person.id} value={person.id}>{person.name}</option>
+                ))}
+            </select>
+          </label>
           <label className="lg:w-56">
             <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Sortera pass</span>
             <select
@@ -1318,6 +1339,7 @@ function ScheduleTab() {
           .filter((person): person is SchedulePerson => Boolean(person))
           .filter(person => !isWithinAvailability(entry, person))
           .map(person => person.name);
+        const conflicts = scheduleConflictsFor(entry, entries, people);
         const status = balance < 0 ? `Saknas ${Math.abs(balance)}` : balance > 0 ? `Överbemannad ${balance}` : 'OK';
         const statusClass = balance < 0
           ? 'bg-red-500/15 text-red-300 border-red-500/30'
@@ -1338,6 +1360,14 @@ function ScheduleTab() {
                 <p className="text-amber-300 text-xs mt-2 flex items-center gap-1">
                   <AlertTriangle className="w-3 h-3" />
                   Utanför arbetstid: {outsideNames.join(', ')}
+                </p>
+              )}
+              {conflicts.length > 0 && (
+                <p className="text-red-300 text-xs mt-2 flex items-start gap-1">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Dubbelbokad: {conflicts.map(item => `${item.person.name} (${item.entry.position} ${item.entry.start_time}-${item.entry.end_time})`).join(', ')}
+                  </span>
                 </p>
               )}
               {entry.note && <p className="text-orange-300 text-xs mt-2">{entry.note}</p>}

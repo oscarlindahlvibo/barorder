@@ -51,6 +51,23 @@ function statusFor(entry: ScheduleEntry) {
   return { label: 'OK', className: 'bg-green-500/20 text-green-200 border-green-500/40' };
 }
 
+function scheduleConflictsFor(entry: ScheduleEntry, entries: ScheduleEntry[], people: SchedulePerson[]) {
+  return (entry.assigned_staff_ids || [])
+    .map(id => {
+      const person = people.find(item => item.id === id);
+      const conflictingEntry = entries.find(candidate => (
+        candidate.id !== entry.id &&
+        candidate.active &&
+        candidate.assigned_staff_ids?.includes(id) &&
+        candidate.day === entry.day &&
+        entryRange(entry).start < entryRange(candidate).end &&
+        entryRange(candidate).start < entryRange(entry).end
+      ));
+      return person && conflictingEntry ? { person, entry: conflictingEntry } : null;
+    })
+    .filter((item): item is { person: SchedulePerson; entry: ScheduleEntry } => Boolean(item));
+}
+
 export default function ScheduleDisplay() {
   const { logout } = useApp();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
@@ -202,6 +219,7 @@ export default function ScheduleDisplay() {
                             .filter((person): person is SchedulePerson => Boolean(person))
                             .filter(person => !isWithinAvailability(entry, person))
                             .map(person => person.name);
+                          const conflicts = scheduleConflictsFor(entry, entries, people);
                           return (
                             <div
                               key={entry.id}
@@ -226,6 +244,14 @@ export default function ScheduleDisplay() {
                                 <p className="mt-1 flex min-w-0 items-start gap-1 text-xs font-semibold leading-tight text-amber-200">
                                   <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
                                   <span className="min-w-0 break-words [overflow-wrap:anywhere]">Utanför tid: {outsideNames.join(', ')}</span>
+                                </p>
+                              )}
+                              {conflicts.length > 0 && (
+                                <p className="mt-1 flex min-w-0 items-start gap-1 text-xs font-semibold leading-tight text-red-200">
+                                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                                    Dubbelbokad: {conflicts.map(item => item.person.name).join(', ')}
+                                  </span>
                                 </p>
                               )}
                             </div>
