@@ -55,6 +55,16 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
   const [manualNote, setManualNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  function formatSupabaseError(errorValue: unknown) {
+    if (!errorValue || typeof errorValue !== 'object') return 'Något gick fel. Försök igen.';
+    const maybeError = errorValue as { message?: string; details?: string; code?: string };
+    if (maybeError.message?.includes('staff_ledger_entries')) {
+      return 'Personalliggaren saknar databastabellen. Kör senaste Supabase-migrationen och försök igen.';
+    }
+    return maybeError.message || maybeError.details || maybeError.code || 'Något gick fel. Försök igen.';
+  }
 
   const load = useCallback(async () => {
     const [scheduleResult, peopleResult, ledgerResult] = await Promise.all([
@@ -62,10 +72,16 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       supabase.from('schedule_people').select('*').eq('active', true).order('sort_order'),
       supabase.from('staff_ledger_entries').select('*').order('check_in_at', { ascending: false }),
     ]);
+    if (scheduleResult.error || peopleResult.error || ledgerResult.error) {
+      setError(formatSupabaseError(scheduleResult.error || peopleResult.error || ledgerResult.error));
+      setLedgerEntries([]);
+    } else {
+      setError('');
+      setLedgerEntries((ledgerResult.data || []) as StaffLedgerEntry[]);
+    }
     const schedules = (scheduleResult.data || []) as ScheduleEntry[];
     setScheduleEntries(schedules);
     setPeople((peopleResult.data || []) as SchedulePerson[]);
-    setLedgerEntries((ledgerResult.data || []) as StaffLedgerEntry[]);
     setSelectedDay(current => current || schedules[0]?.day || 'Fredag');
     setLoading(false);
   }, []);
@@ -104,7 +120,8 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
 
   async function checkInScheduled(person: SchedulePerson, entry: ScheduleEntry) {
     setSavingId(`${entry.id}-${person.id}`);
-    await supabase.from('staff_ledger_entries').insert({
+    setError('');
+    const { error: insertError } = await supabase.from('staff_ledger_entries').insert({
       schedule_person_id: person.id,
       schedule_entry_id: entry.id,
       name: person.name,
@@ -116,16 +133,27 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       note: null,
       created_by: currentUser?.id || null,
     });
+    if (insertError) {
+      setError(formatSupabaseError(insertError));
+      setSavingId(null);
+      return;
+    }
     await load();
     setSavingId(null);
   }
 
   async function checkOut(entry: StaffLedgerEntry) {
     setSavingId(entry.id);
-    await supabase
+    setError('');
+    const { error: updateError } = await supabase
       .from('staff_ledger_entries')
       .update({ check_out_at: new Date().toISOString() })
       .eq('id', entry.id);
+    if (updateError) {
+      setError(formatSupabaseError(updateError));
+      setSavingId(null);
+      return;
+    }
     await load();
     setSavingId(null);
   }
@@ -139,7 +167,8 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       return;
     }
     setSavingId('manual');
-    await supabase.from('staff_ledger_entries').insert({
+    setError('');
+    const { error: insertError } = await supabase.from('staff_ledger_entries').insert({
       schedule_person_id: null,
       schedule_entry_id: null,
       name,
@@ -151,6 +180,11 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       note: manualNote.trim() || null,
       created_by: currentUser?.id || null,
     });
+    if (insertError) {
+      setError(formatSupabaseError(insertError));
+      setSavingId(null);
+      return;
+    }
     setManualName('');
     setManualNote('');
     await load();
@@ -205,6 +239,16 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                 Saknas från schemat
               </p>
               <p className="mt-1 text-sm text-red-200">{missingPeople.map(person => person.name).join(', ')}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3">
+              <p className="text-sm font-bold text-red-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Personalliggaren kunde inte sparas/läsas
+              </p>
+              <p className="mt-1 text-sm text-red-200">{error}</p>
             </div>
           )}
         </section>
