@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ClipboardCheck, LogOut, Plus, RefreshCw, Shield, UserCheck, UserX } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Download, Loader2, LogOut, Plus, RefreshCw, Shield, Trash2, UserCheck, UserX } from 'lucide-react';
 import { ScheduleEntry, SchedulePerson, StaffLedgerEntry, StaffLedgerRole, supabase } from '../lib/supabase';
 import { useApp } from '../lib/store';
+import { passwordMatches } from '../lib/auth';
 import RoleMenuButton from './RoleMenuButton';
 
 const ROLE_LABELS: Record<StaffLedgerRole, string> = {
@@ -20,6 +21,34 @@ function daySortValue(day: string) {
 function formatTime(value: string | null) {
   if (!value) return '-';
   return new Date(value).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(value: string | null) {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString('sv-SE');
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return '-';
+  return `${formatDate(value)} ${formatTime(value)}`;
+}
+
+function csvValue(value: string | number | null | undefined) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map(row => row.map(csvValue).join(';')).join('\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function activeForPerson(entries: StaffLedgerEntry[], schedulePersonId: string, day: string) {
@@ -57,6 +86,10 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearPassword, setClearPassword] = useState('');
+  const [clearError, setClearError] = useState('');
+  const [clearingLedger, setClearingLedger] = useState(false);
 
   function formatSupabaseError(errorValue: unknown) {
     if (!errorValue || typeof errorValue !== 'object') return 'Något gick fel. Försök igen.';
@@ -141,6 +174,55 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
     return shifts
       .map(entry => `${entry.position} ${entry.start_time}-${entry.end_time}`)
       .join(' · ');
+  }
+
+  function exportLedger(entries: StaffLedgerEntry[], scope: 'all' | 'day') {
+    const sortedEntries = [...entries].sort((a, b) => new Date(a.check_in_at).getTime() - new Date(b.check_in_at).getTime());
+    const rows = [
+      ['Namn', 'Typ', 'Dag', 'Pass/roll', 'In datum', 'In tid', 'Ut datum', 'Ut tid', 'Status', 'Anteckning'],
+      ...sortedEntries.map(entry => [
+        entry.name,
+        ROLE_LABELS[entry.role],
+        entry.day,
+        entry.position || '',
+        formatDate(entry.check_in_at),
+        formatTime(entry.check_in_at),
+        formatDate(entry.check_out_at),
+        formatTime(entry.check_out_at),
+        entry.check_out_at ? 'Utstämplad' : 'Inne',
+        entry.note || '',
+      ]),
+    ];
+    const datePart = new Date().toISOString().slice(0, 10);
+    const dayPart = scope === 'day' ? `-${selectedDay.toLowerCase().replace(/\s+/g, '-')}` : '-alla';
+    downloadCsv(`personalliggare${dayPart}-${datePart}.csv`, rows);
+  }
+
+  async function clearLedger() {
+    if (!currentUser || clearingLedger) return;
+    setClearError('');
+    const allowed = await passwordMatches(currentUser, clearPassword);
+    if (!allowed) {
+      setClearError('Fel lösenord.');
+      return;
+    }
+    if (!window.confirm('Rensa hela personalliggaren? Exportera rapport först om du behöver spara underlaget.')) return;
+
+    setClearingLedger(true);
+    const { error: deleteError } = await supabase
+      .from('staff_ledger_entries')
+      .delete()
+      .not('id', 'is', null);
+    if (deleteError) {
+      setClearError(formatSupabaseError(deleteError));
+      setClearingLedger(false);
+      return;
+    }
+    setClearingLedger(false);
+    setShowClearConfirm(false);
+    setClearPassword('');
+    setNotice('Personalliggaren är rensad.');
+    await load();
   }
 
   async function checkInScheduled(person: SchedulePerson, shifts: ScheduleEntry[]) {
@@ -318,6 +400,88 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
           )}
         </section>
 
+        {embedded && (
+          <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black text-white">Rapporter och rensning</h2>
+                <p className="text-sm text-gray-400">Exportera personalliggaren innan du rensar inför nästa kväll.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => exportLedger(visibleLedger, 'day')}
+                  disabled={visibleLedger.length === 0}
+                  className="h-10 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 font-semibold flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportera vald dag
+                </button>
+                <button
+                  onClick={() => exportLedger(ledgerEntries, 'all')}
+                  disabled={ledgerEntries.length === 0}
+                  className="h-10 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 font-semibold flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportera allt
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClearConfirm(value => !value);
+                    setClearError('');
+                    setClearPassword('');
+                  }}
+                  disabled={ledgerEntries.length === 0}
+                  className="h-10 px-3 rounded-xl border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-40 text-red-300 font-semibold flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Rensa flödet
+                </button>
+              </div>
+            </div>
+
+            {showClearConfirm && (
+              <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 space-y-3">
+                <div>
+                  <p className="text-red-200 font-semibold">Rensa hela personalliggaren?</p>
+                  <p className="text-red-200/80 text-sm mt-1">
+                    Detta tar bort alla in- och utstämplingar i kontrollvyn. Exportera rapport först om den ska sparas.
+                  </p>
+                </div>
+                <input
+                  value={clearPassword}
+                  onChange={event => setClearPassword(event.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Ditt lösenord"
+                  className="w-full bg-gray-950 border border-red-500/30 rounded-xl px-3 py-2.5 text-white placeholder-red-200/40 focus:outline-none focus:border-red-400"
+                />
+                {clearError && <p className="text-red-300 text-sm">{clearError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={clearLedger}
+                    disabled={clearingLedger || !clearPassword}
+                    className="flex-1 h-10 bg-red-600 hover:bg-red-500 rounded-xl text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {clearingLedger ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Rensa personalliggaren
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowClearConfirm(false);
+                      setClearPassword('');
+                      setClearError('');
+                    }}
+                    disabled={clearingLedger}
+                    className="h-10 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-300 font-semibold disabled:opacity-50"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
           <h2 className="text-lg font-black text-white">Schemalagd personal</h2>
           {loading ? (
@@ -337,7 +501,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-white">{person.name}</p>
                       <p className="text-xs text-gray-500">
-                        {open ? `In ${formatTime(open.check_in_at)}` : 'Ej incheckad'}
+                        {open ? `In ${formatDateTime(open.check_in_at)}` : 'Ej incheckad'}
                         {shifts.length > 0 ? ` · ${shiftSummary(shifts)}` : ''}
                       </p>
                     </div>
@@ -448,7 +612,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
               <div key={entry.id} className="rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-white">{entry.name}</p>
-                  <p className="text-xs text-gray-500">{ROLE_LABELS[entry.role]} · In {formatTime(entry.check_in_at)}{entry.note ? ` · ${entry.note}` : ''}</p>
+                  <p className="text-xs text-gray-500">{ROLE_LABELS[entry.role]} · In {formatDateTime(entry.check_in_at)}{entry.note ? ` · ${entry.note}` : ''}</p>
                 </div>
                 <button onClick={() => checkOut(entry)} className="h-9 px-3 rounded-lg border border-red-500/40 bg-red-500/15 text-sm font-bold text-red-300">
                   Stämpla ut
@@ -467,8 +631,10 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                   <th className="py-2 pr-3">Namn</th>
                   <th className="py-2 pr-3">Typ</th>
                   <th className="py-2 pr-3">Dag/pass</th>
-                  <th className="py-2 pr-3">In</th>
-                  <th className="py-2 pr-3">Ut</th>
+                  <th className="py-2 pr-3">In datum</th>
+                  <th className="py-2 pr-3">In tid</th>
+                  <th className="py-2 pr-3">Ut datum</th>
+                  <th className="py-2 pr-3">Ut tid</th>
                   <th className="py-2 pr-3">Status</th>
                 </tr>
               </thead>
@@ -478,7 +644,9 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                     <td className="py-2 pr-3 font-semibold text-white">{entry.name}</td>
                     <td className="py-2 pr-3">{ROLE_LABELS[entry.role]}</td>
                     <td className="py-2 pr-3">{entry.day}{entry.position ? ` · ${entry.position}` : ''}</td>
+                    <td className="py-2 pr-3">{formatDate(entry.check_in_at)}</td>
                     <td className="py-2 pr-3">{formatTime(entry.check_in_at)}</td>
+                    <td className="py-2 pr-3">{formatDate(entry.check_out_at)}</td>
                     <td className="py-2 pr-3">{formatTime(entry.check_out_at)}</td>
                     <td className="py-2 pr-3">
                       <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
@@ -491,7 +659,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                 ))}
                 {visibleLedger.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-gray-500">Inga registreringar för vald dag.</td>
+                    <td colSpan={8} className="py-8 text-center text-gray-500">Inga registreringar för vald dag.</td>
                   </tr>
                 )}
               </tbody>
