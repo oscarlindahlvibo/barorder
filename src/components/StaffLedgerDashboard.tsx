@@ -56,6 +56,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   function formatSupabaseError(errorValue: unknown) {
     if (!errorValue || typeof errorValue !== 'object') return 'Något gick fel. Försök igen.';
@@ -110,7 +111,15 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       .sort((a, b) => a.start_time.localeCompare(b.start_time) || a.position.localeCompare(b.position, 'sv'))
   ), [scheduleEntries, selectedDay]);
 
-  const visibleLedger = ledgerEntries.filter(entry => entry.day === selectedDay);
+  const visibleLedger = ledgerEntries
+    .filter(entry => entry.day === selectedDay)
+    .sort((a, b) => {
+      const activeSort = Number(Boolean(a.check_out_at)) - Number(Boolean(b.check_out_at));
+      if (activeSort !== 0) return activeSort;
+      const manualSort = Number(Boolean(a.schedule_person_id)) - Number(Boolean(b.schedule_person_id));
+      if (manualSort !== 0) return manualSort;
+      return new Date(b.check_in_at).getTime() - new Date(a.check_in_at).getTime();
+    });
   const activeLedger = visibleLedger.filter(entry => !entry.check_out_at);
   const manualActive = activeLedger.filter(entry => !entry.schedule_person_id);
 
@@ -121,6 +130,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
   async function checkInScheduled(person: SchedulePerson, entry: ScheduleEntry) {
     setSavingId(`${entry.id}-${person.id}`);
     setError('');
+    setNotice('');
     const { error: insertError } = await supabase.from('staff_ledger_entries').insert({
       schedule_person_id: person.id,
       schedule_entry_id: entry.id,
@@ -138,6 +148,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       setSavingId(null);
       return;
     }
+    setNotice(`${person.name} är incheckad.`);
     await load();
     setSavingId(null);
   }
@@ -145,6 +156,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
   async function checkOut(entry: StaffLedgerEntry) {
     setSavingId(entry.id);
     setError('');
+    setNotice('');
     const { error: updateError } = await supabase
       .from('staff_ledger_entries')
       .update({ check_out_at: new Date().toISOString() })
@@ -154,6 +166,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       setSavingId(null);
       return;
     }
+    setNotice(`${entry.name} är utstämplad.`);
     await load();
     setSavingId(null);
   }
@@ -168,6 +181,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
     }
     setSavingId('manual');
     setError('');
+    setNotice('');
     const { error: insertError } = await supabase.from('staff_ledger_entries').insert({
       schedule_person_id: null,
       schedule_entry_id: null,
@@ -185,6 +199,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       setSavingId(null);
       return;
     }
+    setNotice(`${name} är incheckad som ${ROLE_LABELS[manualRole].toLowerCase()}.`);
     setManualName('');
     setManualNote('');
     await load();
@@ -249,6 +264,12 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
                 Personalliggaren kunde inte sparas/läsas
               </p>
               <p className="mt-1 text-sm text-red-200">{error}</p>
+            </div>
+          )}
+
+          {notice && !error && (
+            <div className="rounded-xl border border-green-500/40 bg-green-500/10 p-3">
+              <p className="text-sm font-bold text-green-200">{notice}</p>
             </div>
           )}
         </section>
