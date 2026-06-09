@@ -22,10 +22,10 @@ function formatTime(value: string | null) {
   return new Date(value).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
 }
 
-function activeForShift(entries: StaffLedgerEntry[], schedulePersonId: string, scheduleEntryId: string) {
+function activeForPerson(entries: StaffLedgerEntry[], schedulePersonId: string, day: string) {
   return entries.find(entry => (
     entry.schedule_person_id === schedulePersonId &&
-    entry.schedule_entry_id === scheduleEntryId &&
+    entry.day === day &&
     !entry.check_out_at
   ));
 }
@@ -122,22 +122,38 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
     });
   const activeLedger = visibleLedger.filter(entry => !entry.check_out_at);
   const manualActive = activeLedger.filter(entry => !entry.schedule_person_id);
+  const activeScheduledCount = new Set(activeLedger.filter(entry => entry.schedule_person_id).map(entry => entry.schedule_person_id)).size;
+  const activeTotalCount = activeScheduledCount + manualActive.length;
 
   const scheduledStaffIds = new Set(visibleSchedules.flatMap(entry => entry.assigned_staff_ids || []));
   const checkedScheduledIds = new Set(activeLedger.filter(entry => entry.schedule_person_id).map(entry => entry.schedule_person_id));
   const missingPeople = people.filter(person => scheduledStaffIds.has(person.id) && !checkedScheduledIds.has(person.id));
+  const scheduledPeople = people
+    .filter(person => scheduledStaffIds.has(person.id))
+    .map(person => ({
+      person,
+      shifts: visibleSchedules.filter(entry => (entry.assigned_staff_ids || []).includes(person.id)),
+      open: activeForPerson(ledgerEntries, person.id, selectedDay),
+    }))
+    .sort((a, b) => a.person.name.localeCompare(b.person.name, 'sv'));
 
-  async function checkInScheduled(person: SchedulePerson, entry: ScheduleEntry) {
-    setSavingId(`${entry.id}-${person.id}`);
+  function shiftSummary(shifts: ScheduleEntry[]) {
+    return shifts
+      .map(entry => `${entry.position} ${entry.start_time}-${entry.end_time}`)
+      .join(' · ');
+  }
+
+  async function checkInScheduled(person: SchedulePerson, shifts: ScheduleEntry[]) {
+    setSavingId(`scheduled-${person.id}`);
     setError('');
     setNotice('');
     const { error: insertError } = await supabase.from('staff_ledger_entries').insert({
       schedule_person_id: person.id,
-      schedule_entry_id: entry.id,
+      schedule_entry_id: null,
       name: person.name,
       role: 'scheduled',
-      day: entry.day,
-      position: entry.position,
+      day: selectedDay,
+      position: shiftSummary(shifts) || 'Schemalagd',
       check_in_at: new Date().toISOString(),
       check_out_at: null,
       note: null,
@@ -167,6 +183,34 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
       return;
     }
     setNotice(`${entry.name} är utstämplad.`);
+    await load();
+    setSavingId(null);
+  }
+
+  async function checkOutScheduled(person: SchedulePerson) {
+    const openEntries = ledgerEntries.filter(entry => (
+      entry.schedule_person_id === person.id &&
+      entry.day === selectedDay &&
+      !entry.check_out_at
+    ));
+    if (openEntries.length === 0) return;
+    setSavingId(`scheduled-${person.id}`);
+    setError('');
+    setNotice('');
+    const checkedOutAt = new Date().toISOString();
+    const results = await Promise.all(openEntries.map(entry => (
+      supabase
+        .from('staff_ledger_entries')
+        .update({ check_out_at: checkedOutAt })
+        .eq('id', entry.id)
+    )));
+    const updateError = results.find(result => result.error)?.error;
+    if (updateError) {
+      setError(formatSupabaseError(updateError));
+      setSavingId(null);
+      return;
+    }
+    setNotice(`${person.name} är utstämplad.`);
     await load();
     setSavingId(null);
   }
@@ -235,7 +279,7 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-black text-white">Närvaro {selectedDay}</h2>
               <p className="text-sm text-gray-400">
-                {checkedScheduledIds.size}/{scheduledStaffIds.size} schemalagda incheckade · {activeLedger.length} inne totalt
+                {checkedScheduledIds.size}/{scheduledStaffIds.size} schemalagda incheckade · {activeTotalCount} inne totalt
               </p>
             </div>
             <select
@@ -274,73 +318,95 @@ export function StaffLedgerPanel({ embedded = false }: StaffLedgerPanelProps) {
           )}
         </section>
 
-        <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
+          <h2 className="text-lg font-black text-white">Schemalagd personal</h2>
           {loading ? (
-            <div className="xl:col-span-2 rounded-xl border border-gray-800 bg-gray-900 p-8 flex justify-center">
+            <div className="rounded-xl border border-gray-800 bg-gray-950 p-8 flex justify-center">
               <LoaderIcon />
             </div>
-          ) : visibleSchedules.length === 0 ? (
-            <div className="xl:col-span-2 rounded-xl border border-gray-800 bg-gray-900 p-8 text-center text-gray-500">
-              Inga schemalagda pass för vald dag.
+          ) : scheduledPeople.length === 0 ? (
+            <div className="rounded-xl border border-gray-800 bg-gray-950 p-8 text-center text-gray-500">
+              Ingen namngiven personal schemalagd för vald dag.
             </div>
-          ) : visibleSchedules.map(entry => {
-            const assignedPeople = (entry.assigned_staff_ids || [])
-              .map(id => people.find(person => person.id === id))
-              .filter((person): person is SchedulePerson => Boolean(person));
-            const checkedCount = assignedPeople.filter(person => activeForShift(ledgerEntries, person.id, entry.id)).length;
-            const expectedCount = assignedPeople.length || entry.required_count;
-            const missingForShift = assignedPeople.filter(person => !activeForShift(ledgerEntries, person.id, entry.id));
-
-            return (
-              <div key={entry.id} className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-white font-black">{entry.position}</h3>
-                    <p className="text-sm text-gray-400">{entry.day} {entry.start_time}-{entry.end_time}</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+              {scheduledPeople.map(({ person, shifts, open }) => {
+                const isSaving = savingId === `scheduled-${person.id}` || savingId === open?.id;
+                return (
+                  <div key={person.id} className="flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-950 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-white">{person.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {open ? `In ${formatTime(open.check_in_at)}` : 'Ej incheckad'}
+                        {shifts.length > 0 ? ` · ${shiftSummary(shifts)}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => open ? checkOutScheduled(person) : checkInScheduled(person, shifts)}
+                      disabled={isSaving}
+                      className={`h-10 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 ${
+                        open ? 'bg-red-500/15 text-red-300 border border-red-500/40' : 'bg-green-600 text-white'
+                      }`}
+                    >
+                      {open ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                      {open ? 'Stämpla ut' : 'Stämpla in'}
+                    </button>
                   </div>
-                  <span className={`rounded-full border px-3 py-1 text-sm font-black ${
-                    checkedCount >= expectedCount ? 'border-green-500/40 bg-green-500/15 text-green-300' : 'border-amber-500/40 bg-amber-500/15 text-amber-300'
-                  }`}>
-                    {checkedCount}/{expectedCount}
-                  </span>
-                </div>
-
-                {missingForShift.length > 0 && (
-                  <p className="text-xs text-red-300 flex items-center gap-1">
-                    <UserX className="w-3.5 h-3.5" />
-                    Saknas: {missingForShift.map(person => person.name).join(', ')}
-                  </p>
-                )}
-
-                <div className="space-y-2">
-                  {assignedPeople.map(person => {
-                    const open = activeForShift(ledgerEntries, person.id, entry.id);
-                    const isSaving = savingId === `${entry.id}-${person.id}` || savingId === open?.id;
-                    return (
-                      <div key={person.id} className="flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-950 px-3 py-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-white">{person.name}</p>
-                          <p className="text-xs text-gray-500">{open ? `In ${formatTime(open.check_in_at)}` : 'Ej incheckad'}</p>
-                        </div>
-                        <button
-                          onClick={() => open ? checkOut(open) : checkInScheduled(person, entry)}
-                          disabled={isSaving}
-                          className={`h-10 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 ${
-                            open ? 'bg-red-500/15 text-red-300 border border-red-500/40' : 'bg-green-600 text-white'
-                          }`}
-                        >
-                          {open ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                          {open ? 'Stämpla ut' : 'Stämpla in'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {assignedPeople.length === 0 && <p className="text-sm text-gray-500">Inga namngivna personer på passet.</p>}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </section>
+
+        {embedded && (
+          <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
+            <h2 className="text-lg font-black text-white">Passkontroll</h2>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {visibleSchedules.map(entry => {
+                const assignedPeople = (entry.assigned_staff_ids || [])
+                  .map(id => people.find(person => person.id === id))
+                  .filter((person): person is SchedulePerson => Boolean(person));
+                const checkedCount = assignedPeople.filter(person => activeForPerson(ledgerEntries, person.id, selectedDay)).length;
+                const expectedCount = assignedPeople.length || entry.required_count;
+                const missingForShift = assignedPeople.filter(person => !activeForPerson(ledgerEntries, person.id, selectedDay));
+
+                return (
+                  <div key={entry.id} className="rounded-xl border border-gray-800 bg-gray-950 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-white font-black">{entry.position}</h3>
+                        <p className="text-sm text-gray-400">{entry.day} {entry.start_time}-{entry.end_time}</p>
+                      </div>
+                      <span className={`rounded-full border px-3 py-1 text-sm font-black ${
+                        checkedCount >= expectedCount ? 'border-green-500/40 bg-green-500/15 text-green-300' : 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                      }`}>
+                        {checkedCount}/{expectedCount}
+                      </span>
+                    </div>
+
+                    {missingForShift.length > 0 ? (
+                      <p className="text-xs text-red-300 flex items-center gap-1">
+                        <UserX className="w-3.5 h-3.5" />
+                        Saknas: {missingForShift.map(person => person.name).join(', ')}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-green-300 flex items-center gap-1">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Alla namngivna på passet är incheckade.
+                      </p>
+                    )}
+                    {assignedPeople.length === 0 && <p className="text-sm text-gray-500">Inga namngivna personer på passet.</p>}
+                  </div>
+                );
+              })}
+              {visibleSchedules.length === 0 && (
+                <div className="xl:col-span-2 rounded-xl border border-gray-800 bg-gray-950 p-8 text-center text-gray-500">
+                  Inga schemalagda pass för vald dag.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
           <div className="flex items-center gap-2">
