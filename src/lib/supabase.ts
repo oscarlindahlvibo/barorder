@@ -22,7 +22,8 @@ export type UserRole =
   | 'kitchen_display'
   | 'schedule_display'
   | 'exhibition_display'
-  | 'event_planning';
+  | 'event_planning'
+  | 'staff_ledger';
 
 export interface AppUser {
   id: string;
@@ -47,6 +48,7 @@ export const ALL_USER_ROLES: UserRole[] = [
   'schedule_display',
   'exhibition_display',
   'event_planning',
+  'staff_ledger',
 ];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -60,6 +62,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   schedule_display: 'Schemaskärm',
   exhibition_display: 'Utställningsservice TV',
   event_planning: 'Evenemangsplanering',
+  staff_ledger: 'Personalliggare',
 };
 
 export interface Location {
@@ -176,6 +179,24 @@ export interface SchedulePerson {
   note: string | null;
   active: boolean;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StaffLedgerRole = 'scheduled' | 'security' | 'extra';
+
+export interface StaffLedgerEntry {
+  id: string;
+  schedule_person_id: string | null;
+  schedule_entry_id: string | null;
+  name: string;
+  role: StaffLedgerRole;
+  day: string;
+  position: string | null;
+  check_in_at: string;
+  check_out_at: string | null;
+  note: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }

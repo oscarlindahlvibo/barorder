@@ -15,6 +15,7 @@ const BOOTSTRAP_USERS = [
   { name: 'Köksskärm gäster', username: 'gastskarm', pin: '1357', role: 'kitchen_display' as UserRole },
   { name: 'Schemaskärm', username: 'schema', pin: '8642', role: 'schedule_display' as UserRole },
   { name: 'Utställningsservice TV', username: 'utstallning', pin: '9753', role: 'exhibition_display' as UserRole },
+  { name: 'Personalliggare', username: 'personalliggare', pin: '1122', role: 'staff_ledger' as UserRole },
 ];
 
 export default function PinLogin() {

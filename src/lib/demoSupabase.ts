@@ -1,4 +1,4 @@
-import type { AdminChatMessage, AppUser, KitchenOrder, Location, PlanningTask, Product, RestockRequest, RestockRequestItem, ScheduleEntry, SchedulePerson, SchedulePosition, ShoppingItem } from './supabase';
+import type { AdminChatMessage, AppUser, KitchenOrder, Location, PlanningTask, Product, RestockRequest, RestockRequestItem, ScheduleEntry, SchedulePerson, SchedulePosition, ShoppingItem, StaffLedgerEntry } from './supabase';
 
 interface PushSubscriptionRow {
   id: string;
@@ -25,8 +25,8 @@ interface NativePushTokenRow {
   updated_at: string;
 }
 
-type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'native_push_tokens' | 'admin_chat_messages' | 'kitchen_orders' | 'schedule_entries' | 'schedule_positions' | 'schedule_people' | 'planning_tasks' | 'shopping_items';
-type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | NativePushTokenRow | AdminChatMessage | KitchenOrder | ScheduleEntry | SchedulePosition | SchedulePerson | PlanningTask | ShoppingItem;
+type TableName = 'users' | 'locations' | 'products' | 'restock_requests' | 'restock_request_items' | 'push_subscriptions' | 'native_push_tokens' | 'admin_chat_messages' | 'kitchen_orders' | 'schedule_entries' | 'schedule_positions' | 'schedule_people' | 'planning_tasks' | 'shopping_items' | 'staff_ledger_entries';
+type Row = AppUser | Location | Product | RestockRequest | RestockRequestItem | PushSubscriptionRow | NativePushTokenRow | AdminChatMessage | KitchenOrder | ScheduleEntry | SchedulePosition | SchedulePerson | PlanningTask | ShoppingItem | StaffLedgerEntry;
 type Filter = { field: string; op: 'eq' | 'in' | 'neq' | 'not_is'; value: unknown };
 type Order = { field: string; ascending: boolean };
 type ChangePayload = { new: Row };
@@ -49,13 +49,14 @@ interface DemoDb {
   schedule_people: SchedulePerson[];
   planning_tasks: PlanningTask[];
   shopping_items: ShoppingItem[];
+  staff_ledger_entries: StaffLedgerEntry[];
 }
 
 const now = new Date().toISOString();
 
 const seedDb: DemoDb = {
   users: [
-    { id: 'user-admin', name: 'Admin', username: 'admin', password_hash: null, pin: '0000', role: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display', 'event_planning'], active: true, created_at: now },
+    { id: 'user-admin', name: 'Admin', username: 'admin', password_hash: null, pin: '0000', role: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display', 'event_planning', 'staff_ledger'], active: true, created_at: now },
     { id: 'user-bar', name: 'Barpersonal', username: 'bar', password_hash: null, pin: '1234', role: 'barpersonal', roles: ['barpersonal', 'lager'], active: true, created_at: now },
     { id: 'user-personal', name: 'Personalansvarig', username: 'personal', password_hash: null, pin: '5555', role: 'personal', roles: ['personal'], active: true, created_at: now },
     { id: 'user-serving', name: 'Serveringsansvarig', username: 'servering', password_hash: null, pin: '4444', role: 'serveringsansvarig', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'], active: true, created_at: now },
@@ -64,6 +65,7 @@ const seedDb: DemoDb = {
     { id: 'user-kitchen-display', name: 'Köksskärm gäster', username: 'gastskarm', password_hash: null, pin: '1357', role: 'kitchen_display', roles: ['kitchen_display'], active: true, created_at: now },
     { id: 'user-schedule-display', name: 'Schemaskärm', username: 'schema', password_hash: null, pin: '8642', role: 'schedule_display', roles: ['schedule_display'], active: true, created_at: now },
     { id: 'user-exhibition-display', name: 'Utställningsservice TV', username: 'utstallning', password_hash: null, pin: '9753', role: 'exhibition_display', roles: ['exhibition_display'], active: true, created_at: now },
+    { id: 'user-staff-ledger', name: 'Personalliggare', username: 'personalliggare', password_hash: null, pin: '1122', role: 'staff_ledger', roles: ['staff_ledger'], active: true, created_at: now },
   ],
   locations: [
     { id: 'loc-main', name: 'Stora baren', active: true, sort_order: 1, created_at: now },
@@ -140,6 +142,7 @@ const seedDb: DemoDb = {
   ],
   planning_tasks: [],
   shopping_items: [],
+  staff_ledger_entries: [],
 };
 
 function clone<T>(value: T): T {
@@ -154,7 +157,7 @@ function loadDb(): DemoDb {
   }
   const db = JSON.parse(raw) as DemoDb;
   const defaults: Record<string, Partial<AppUser>> = {
-    '0000': { username: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display', 'event_planning'] },
+    '0000': { username: 'admin', roles: ['admin', 'barpersonal', 'lager', 'personal', 'serveringsansvarig', 'kitchen', 'kitchen_display', 'schedule_display', 'exhibition_display', 'event_planning', 'staff_ledger'] },
     '1234': { username: 'bar', roles: ['barpersonal', 'lager'] },
     '5555': { username: 'personal', roles: ['personal'] },
     '4444': { username: 'servering', roles: ['serveringsansvarig', 'barpersonal', 'lager', 'personal'] },
@@ -163,6 +166,7 @@ function loadDb(): DemoDb {
     '1357': { username: 'gastskarm', roles: ['kitchen_display'] },
     '8642': { username: 'schema', roles: ['schedule_display'] },
     '9753': { username: 'utstallning', roles: ['exhibition_display'] },
+    '1122': { username: 'personalliggare', roles: ['staff_ledger'] },
   };
   let changedUsers = false;
   db.users.forEach(user => {
@@ -185,6 +189,10 @@ function loadDb(): DemoDb {
     }
     if (user.role === 'admin' && !user.roles?.includes('event_planning')) {
       user.roles = [...(user.roles || ['admin']), 'event_planning'];
+      changedUsers = true;
+    }
+    if (user.role === 'admin' && !user.roles?.includes('staff_ledger')) {
+      user.roles = [...(user.roles || ['admin']), 'staff_ledger'];
       changedUsers = true;
     }
   });
@@ -211,6 +219,10 @@ function loadDb(): DemoDb {
   }
   if (!db.users.some(user => user.pin === '9753')) {
     db.users.push({ id: 'user-exhibition-display', name: 'Utställningsservice TV', username: 'utstallning', password_hash: null, pin: '9753', role: 'exhibition_display', roles: ['exhibition_display'], active: true, created_at: now });
+    saveDb(db);
+  }
+  if (!db.users.some(user => user.pin === '1122')) {
+    db.users.push({ id: 'user-staff-ledger', name: 'Personalliggare', username: 'personalliggare', password_hash: null, pin: '1122', role: 'staff_ledger', roles: ['staff_ledger'], active: true, created_at: now });
     saveDb(db);
   }
   if (!db.push_subscriptions) {
@@ -247,6 +259,10 @@ function loadDb(): DemoDb {
   }
   if (!db.shopping_items) {
     db.shopping_items = [];
+    saveDb(db);
+  }
+  if (!db.staff_ledger_entries) {
+    db.staff_ledger_entries = [];
     saveDb(db);
   }
   let changedSchedulePeople = false;
@@ -465,6 +481,7 @@ class DemoQuery {
     if (this.table === 'schedule_people') return { active: true, friday_start: null, friday_end: null, saturday_start: null, saturday_end: null, note: null, sort_order: 0, updated_at: createdAt, ...base } as SchedulePerson;
     if (this.table === 'planning_tasks') return { title: '', description: null, status: 'todo', assignee_id: null, due_date: null, priority: 'normal', tags: [], checklist: [], attachments: [], archived: false, created_by: null, updated_at: createdAt, ...base } as PlanningTask;
     if (this.table === 'shopping_items') return { quantity: '', store: 'Övrigt', assignee_id: null, purchased: false, archived: false, note: null, created_by: null, updated_at: createdAt, ...base } as ShoppingItem;
+    if (this.table === 'staff_ledger_entries') return { schedule_person_id: null, schedule_entry_id: null, name: '', role: 'extra', day: 'Fredag', position: null, check_in_at: createdAt, check_out_at: null, note: null, created_by: null, updated_at: createdAt, ...base } as StaffLedgerEntry;
     return base as RestockRequestItem;
   }
 

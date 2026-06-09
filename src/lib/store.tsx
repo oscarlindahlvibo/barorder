@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { AppUser, Location, UserRole } from './supabase';
 import { viewForRole, withSelectedRole } from './auth';
 
-type View = 'login' | 'role-select' | 'location-select' | 'request' | 'dashboard' | 'staff-dashboard' | 'serving-dashboard' | 'kitchen-dashboard' | 'kitchen-display' | 'schedule-display' | 'exhibition-display' | 'event-planning' | 'history' | 'admin' | 'chat';
+type View = 'login' | 'role-select' | 'location-select' | 'request' | 'dashboard' | 'staff-dashboard' | 'serving-dashboard' | 'kitchen-dashboard' | 'kitchen-display' | 'schedule-display' | 'exhibition-display' | 'event-planning' | 'staff-ledger' | 'history' | 'admin' | 'chat';
 export type ThemeMode = 'system' | 'dark' | 'light';
 
 interface PersistedState {

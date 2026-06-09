@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare, CalendarDays, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Plus, Edit2, Trash2, Check, X, BarChart2, Users, MapPin, Package, Loader2, RotateCcw, MessageSquare, CalendarDays, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { supabase, AppUser, Location, Product, CATEGORIES, ALL_USER_ROLES, ROLE_LABELS, ScheduleEntry, SchedulePerson, SchedulePosition, UserRole } from '../lib/supabase';
 import { useApp } from '../lib/store';
 import ChatPanel from './ChatPanel';
 import { getUserRoles, hashPassword, passwordMatches } from '../lib/auth';
 import RoleMenuButton from './RoleMenuButton';
+import { StaffLedgerPanel } from './StaffLedgerDashboard';
 
-type AdminTab = 'stats' | 'chat' | 'users' | 'schedule' | 'locations' | 'products';
+type AdminTab = 'stats' | 'chat' | 'users' | 'schedule' | 'ledger' | 'locations' | 'products';
 
 export default function AdminPanel() {
   const { setView } = useApp();
@@ -34,6 +35,7 @@ export default function AdminPanel() {
           { id: 'chat', label: 'Chatt', Icon: MessageSquare },
           { id: 'users', label: 'Personal', Icon: Users },
           { id: 'schedule', label: 'Schema', Icon: CalendarDays },
+          { id: 'ledger', label: 'Personalliggare', Icon: ClipboardCheck },
           { id: 'locations', label: 'Platser', Icon: MapPin },
           { id: 'products', label: 'Produkter', Icon: Package },
         ] as { id: AdminTab; label: string; Icon: typeof BarChart2 }[]).map(({ id, label, Icon }) => (
@@ -57,6 +59,7 @@ export default function AdminPanel() {
         {tab === 'chat' && <ChatPanel embedded />}
         {tab === 'users' && <UsersTab />}
         {tab === 'schedule' && <ScheduleTab />}
+        {tab === 'ledger' && <div className="p-4"><StaffLedgerPanel embedded /></div>}
         {tab === 'locations' && <LocationsTab />}
         {tab === 'products' && <ProductsTab />}
       </div>

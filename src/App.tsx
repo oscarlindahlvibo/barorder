@@ -11,6 +11,7 @@ import KitchenDisplay from './components/KitchenDisplay';
 import ScheduleDisplay from './components/ScheduleDisplay';
 import ExhibitionDisplay from './components/ExhibitionDisplay';
 import EventPlanningDashboard from './components/EventPlanningDashboard';
+import StaffLedgerDashboard from './components/StaffLedgerDashboard';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import BarNav from './components/BarNav';
@@ -46,6 +47,7 @@ function AppContent() {
         {view === 'schedule-display' && <ScheduleDisplay />}
         {view === 'exhibition-display' && <ExhibitionDisplay />}
         {view === 'event-planning' && <EventPlanningDashboard />}
+        {view === 'staff-ledger' && <StaffLedgerDashboard />}
         {view === 'chat' && (
           <div className={showBarNav ? 'pb-safe-nav' : ''}>
             <ChatPanel />
