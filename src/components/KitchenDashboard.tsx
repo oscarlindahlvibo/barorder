@@ -194,10 +194,10 @@ export default function KitchenDashboard() {
                     key={order.id}
                     onClick={() => dismissOrder(order)}
                     disabled={updatingId === order.id}
-                    className="min-h-36 rounded-xl border border-green-500/35 bg-green-500/10 hover:bg-green-500/20 text-left p-4 transition-colors disabled:opacity-60"
+                    className="min-h-36 rounded-xl border border-green-500/35 bg-green-500/10 hover:bg-green-500/20 text-left p-4 transition-colors disabled:opacity-60 min-w-0 overflow-hidden [container-type:inline-size]"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-6xl font-black tabular-nums text-white leading-none">{order.order_number}</span>
+                      <span className="min-w-0 max-w-full overflow-hidden whitespace-nowrap text-[clamp(2.75rem,34cqw,3.75rem)] font-black tabular-nums text-white leading-none">{order.order_number}</span>
                       <span className="text-xs font-bold text-green-200 bg-green-500/20 border border-green-500/30 rounded-full px-2 py-1">
                         Klar
                       </span>

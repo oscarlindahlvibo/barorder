@@ -52,9 +52,12 @@ export default function KitchenDisplay() {
 
   const latestOrderId = orders.length > 0 ? orders[orders.length - 1].id : undefined;
   const gridClass = useMemo(() => {
-    if (orders.length <= 2) return 'grid-cols-1 sm:grid-cols-2';
-    if (orders.length <= 6) return 'grid-cols-2 lg:grid-cols-3';
-    return 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4';
+    if (orders.length <= 1) return 'grid-cols-1';
+    if (orders.length <= 4) return 'grid-cols-2';
+    if (orders.length <= 9) return 'grid-cols-3';
+    if (orders.length <= 16) return 'grid-cols-4';
+    if (orders.length <= 25) return 'grid-cols-5';
+    return 'grid-cols-6';
   }, [orders.length]);
 
   return (
@@ -87,7 +90,7 @@ export default function KitchenDisplay() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 sm:p-8 pb-safe-screen overflow-hidden">
+      <main className="flex-1 p-3 sm:p-5 lg:p-8 pb-safe-screen overflow-hidden">
         {orders.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center">
             <div className="w-24 h-24 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center mb-6">
@@ -97,24 +100,24 @@ export default function KitchenDisplay() {
             <p className="text-2xl text-gray-700 mt-3">Ordernummer visas här när köket markerar klart</p>
           </div>
         ) : (
-          <div className={`h-full grid ${gridClass} gap-6 auto-rows-fr`}>
+          <div className={`h-full grid ${gridClass} gap-3 sm:gap-4 lg:gap-6 auto-rows-fr`}>
             {orders.map(order => {
               const isLatest = order.id === latestOrderId;
               return (
                 <div
                   key={order.id}
-                  className={`rounded-2xl border flex flex-col items-center justify-center p-6 ${
+                  className={`rounded-2xl border flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 min-w-0 overflow-hidden [container-type:inline-size] ${
                     isLatest
                       ? 'bg-green-500/20 border-green-400 shadow-[0_0_50px_rgba(34,197,94,0.22)]'
                       : 'bg-gray-900 border-gray-800'
                   }`}
                 >
-                  <p className="text-gray-400 text-2xl font-bold uppercase tracking-wider mb-4">Order</p>
-                  <p className="text-[clamp(5rem,14vw,12rem)] font-black tabular-nums leading-none text-white">
+                  <p className="text-gray-400 text-[clamp(0.85rem,7cqw,1.5rem)] font-bold uppercase tracking-wider mb-2 sm:mb-3 truncate max-w-full">Order</p>
+                  <p className="max-w-full overflow-hidden whitespace-nowrap text-[clamp(2.75rem,22cqw,12rem)] font-black tabular-nums leading-none text-white">
                     {order.order_number}
                   </p>
                   {isLatest && (
-                    <p className="mt-5 text-green-200 text-2xl font-black uppercase tracking-wide">Nyss klar</p>
+                    <p className="mt-3 sm:mt-5 max-w-full truncate text-green-200 text-[clamp(0.9rem,7cqw,1.5rem)] font-black uppercase tracking-wide">Nyss klar</p>
                   )}
                 </div>
               );
